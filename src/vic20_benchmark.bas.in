@@ -1,0 +1,143 @@
+1 poke828,86:poke829,50:poke830,0:goto 100
+21 poke828,86:poke829,50:poke830,1:goto 100
+22 poke828,86:poke829,50:poke830,2:goto 100
+23 poke828,86:poke829,50:poke830,3:goto 100
+24 poke828,86:poke829,50:poke830,4:goto 100
+25 poke828,86:poke829,50:poke830,5:goto 100
+30 poke828,86:poke829,50:poke830,255:goto 100
+100 poke45,000:poke46,000:poke55,{MEMTOP_LOW}:poke56,{MEMTOP_HIGH}:clr
+110 tw={TOTAL_WORK}:di={DRIVE_IMAGE_ADDR}:dl={DRIVE_IMAGE_LEN} 
+120 da={DRIVE_LOAD_DEC}:dp={DRIVE_PARAMS_DEC}:ds={DRIVE_STATUS_DEC}:dr={DRIVE_INLO_DEC}
+130 va={VIC_WORKER_ADDR}:jy={JIFFIES_PER_SECOND}
+140 vw={VIC_WEIGHT}:dw={DRIVE_WEIGHT}:mc={MODE_COUNT}
+150 md=0:if peek(828)=86 and peek(829)=50 then md=peek(830)
+160 poke828,0:poke829,0:poke830,0
+170 if md=255 then 300
+180 if md<0 or md>mc then 300
+190 if md=0 then 370
+200 print chr$(147):print "vic20+1541 pi":am=0:gosub 910:end
+300 print chr$(147):print "vic20+1541 pi"
+310 print "run=all 21-";20+mc
+320 print "mode 0=all 1-";mc
+330 input md
+340 if md<0 or md>mc then 320
+350 if md=0 then 370
+360 am=0:gosub 910:end
+370 print chr$(147):print "vic20+1541 pi ui-"
+371 print "k: v 8 9 10"
+375 print " p t eff":print ""
+376 am=1:d=8:gosub 1110:gosub 2010
+377 d=9:gosub 1110:gosub 2010
+378 d=10:gosub 1110:gosub 2010
+379 p=fre(0)
+380 for mm=1 to mc:md=mm:gosub 910:next
+390 print#8,"u4":close 8
+391 print#9,"u4":close 9
+392 print#10,"u4":close 10
+393 print "done":end
+910 if am=0 then print chr$(147)
+919 if am<>0 then 930
+920 if am=0 then print "mode";md;" ui-"
+930 gosub 1010
+940 if x8=1 and am=0 then d=8:gosub 1110:gosub 2010
+950 if x9=1 and am=0 then d=9:gosub 1110:gosub 2010
+960 if xa=1 and am=0 then d=10:gosub 1110:gosub 2010
+970 if am=0 then print "running..."
+980 gosub 8010
+990 if am=0 then gosub 1210
+995 if am<>0 then return
+996 print "key"
+997 get k$:if k$="" then 997
+999 return
+1010 x8=0:x9=0:xa=0
+1050 if md=1 then return
+1060 if md=2 then x8=1:return
+1070 if md=3 then x8=1:x9=1:return
+1080 if md=4 then x8=1:x9=1:xa=1:return
+1090 if md=5 then x8=1:x9=1:xa=1:return
+1099 return
+1110 open d,d,15,"ui-"
+1120 return
+1210 if x8=1 then print#8,"u4":close 8
+1220 if x9=1 then print#9,"u4":close 9
+1230 if xa=1 then print#10,"u4":close 10
+1240 p=fre(0):return
+2010 p=fre(0):p=0
+2020 if p>=dl then return
+2030 c={DRIVE_CHUNK}:if p+c>dl then c=dl-p
+2040 s$=""
+2050 for i=0 to c-1:s$=s$+chr$(peek(di+p+i)):next
+2060 n=da+p:w=n-256*int(n/256)
+2070 print#d,"m-w"+chr$(w)+chr$(int(n/256))+chr$(c)+s$
+2080 s$="":p=p+c:goto 2020
+4010 s$=chr$(n-256*int(n/256))+chr$(int(n/256))
+4020 s$=s$+chr$(al)+chr$(0)+chr$(0)+chr$(0)+chr$(ah)
+4040 print#d,"m-w"+chr$(dp-256*int(dp/256))+chr$(int(dp/256))+chr$(7)+s$
+4050 s$="":return
+5010 print#d,"u3"
+5020 return
+6010 print#d,"m-r"+chr$(ds-256*int(ds/256))+chr$(int(ds/256))
+6030 a$="":get#d,a$:sv=0:if a$<>"" then sv=asc(a$)
+6040 return
+6110 print#d,"m-r"+chr$(dr-256*int(dr/256))+chr$(int(dr/256))
+6130 a$="":get#d,a$:rv=0:if a$<>"" then rv=asc(a$)
+6150 print#d,"m-r"+chr$(dr+1-256*int((dr+1)/256))+chr$(int((dr+1)/256))
+6160 a$="":get#d,a$:if a$<>"" then rv=rv+256*asc(a$)
+6180 return
+6210 if n8>0 then d=8:gosub 6110:b8=rv:if am=0 then print "d8=";b8
+6220 if n9>0 then d=9:gosub 6110:b9=rv:if am=0 then print "d9=";b9
+6230 if na>0 then d=10:gosub 6110:ba=rv:if am=0 then print "d10=";ba
+6240 ej=ti-j0:if ej<0 then ej=ej+5184000
+6250 tm=ej/jy:ic=lc+b8+b9+ba:p=4*ic/tw
+6254 if am=0 then 6270
+6255 if md=1 then t1=tm
+6256 n=0:if nv>0 then n=n+1
+6257 if n8>0 then n=n+1
+6258 if n9>0 then n=n+1
+6259 if na>0 then n=n+1
+6260 p=int(p*10000+.5)/10000:tm=int(tm*10+.5)/10
+6261 w=0:if tm>0 and n>0 then w=int(t1/tm/n*100+.5)/100
+6262 print " ";p;tm;" ";w
+6263 return
+6270 print "in=";ic
+6280 print "n=";tw
+6290 print "pi=";p
+6295 print "t=";tm;" s"
+6299 return
+7010 nl=n-256*int(n/256):nh=int(n/256)
+7020 poke{VIC_ITERLO_DEC},nl:poke{VIC_ITERHI_DEC},nh
+7030 poke{VIC_SEEDLO_DEC},al:poke{VIC_SEEDHI_DEC},ah
+7040 poke{VIC_STATUS_DEC},0:poke{VIC_INLO_DEC},0:poke{VIC_INHI_DEC},0
+7050 sys {VIC_WORKER_ADDR}
+7060 lc=peek({VIC_INLO_DEC})+256*peek({VIC_INHI_DEC})
+7070 return
+8010 nv=0:n8=0:n9=0:na=0
+8020 if md=1 then nv=tw:goto 8200
+8030 if md=2 then w=vw+dw:nv=int(tw*vw/w):n8=tw-nv:goto 8200
+8040 if md=3 then w=vw+2*dw:nv=int(tw*vw/w):r=tw-nv
+8041 if md=3 then n8=int(r/2):n9=r-n8:goto 8200
+8050 if md=4 then w=vw+3*dw:nv=int(tw*vw/w):r=tw-nv
+8051 if md=4 then n8=int(r/3):n9=n8:na=r-n8-n9:goto 8200
+8060 if md=5 then n8=int(tw/3):n9=n8:na=tw-n8-n9
+8200 if am=0 then print "v=";nv;" d8=";n8
+8210 if am=0 then print "d9=";n9;" d10=";na
+8215 if am<>0 then print "m";chr$(48+md);" ";
+8216 if am<>0 then q=nv:gosub 8600:q=n8:gosub 8600
+8217 if am<>0 then q=n9:gosub 8600:q=na:gosub 8600:print "..."
+8220 lc=0:b8=0:b9=0:ba=0:s8=2:s9=2:sa=2
+8230 j0=ti
+8240 if n8>0 then n=n8:al={DRIVE8_SEED_LO_DEC}:ah={DRIVE8_SEED_HI_DEC}:d=8:gosub 4010:gosub 5010:s8=0
+8250 if n9>0 then n=n9:al={DRIVE9_SEED_LO_DEC}:ah={DRIVE9_SEED_HI_DEC}:d=9:gosub 4010:gosub 5010:s9=0
+8260 if na>0 then n=na:al={DRIVE10_SEED_LO_DEC}:ah={DRIVE10_SEED_HI_DEC}:d=10:gosub 4010:gosub 5010:sa=0
+8270 if nv>0 then n=nv:al={VIC_SEED_LO_DEC}:ah={VIC_SEED_HI_DEC}:gosub 7010:if am=0 then print "vic=";lc
+8300 if s8<>2 or s9<>2 or sa<>2 then 8310
+8305 gosub 6210:return
+8310 if s8<>2 then d=8:gosub 6010:s8=sv
+8320 if s9<>2 then d=9:gosub 6010:s9=sv
+8330 if sa<>2 then d=10:gosub 6010:sa=sv
+8340 goto 8300
+8600 if q=0 then print "-- ";:return
+8610 q=int(q/1000)
+8620 if q>=10 then print chr$(48+int(q/10));
+8630 print chr$(48+q-10*int(q/10));" ";
+8640 return

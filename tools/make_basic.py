@@ -58,6 +58,12 @@ def main() -> None:
     d = config.DRIVE
     c = config.C64
 
+    c64_seed = getattr(config, "C64_SEED", (123, 45))
+    drive_seeds = getattr(config, "DRIVE_SEEDS", {})
+    d8_seed = drive_seeds.get(8, (37, 21))
+    d9_seed = drive_seeds.get(9, (91, 173))
+    d10_seed = drive_seeds.get(10, (211, 57))
+
     replacements = {
         "{TOTAL_WORK}": str(config.TOTAL_WORK),
         "{DRIVE_CHUNK}": str(config.DRIVE_CHUNK),
@@ -95,6 +101,15 @@ def main() -> None:
         "{C64_INHI_DEC}": str(c["params"] + 5),
         "{C64_SEEDHI_DEC}": str(c["params"] + 6),
         "{C64_TABLE_DEC}": str(c["table"]),
+
+        "{C64_SEED_LO_DEC}": str(c64_seed[0]),
+        "{C64_SEED_HI_DEC}": str(c64_seed[1]),
+        "{DRIVE8_SEED_LO_DEC}": str(d8_seed[0]),
+        "{DRIVE8_SEED_HI_DEC}": str(d8_seed[1]),
+        "{DRIVE9_SEED_LO_DEC}": str(d9_seed[0]),
+        "{DRIVE9_SEED_HI_DEC}": str(d9_seed[1]),
+        "{DRIVE10_SEED_LO_DEC}": str(d10_seed[0]),
+        "{DRIVE10_SEED_HI_DEC}": str(d10_seed[1]),
 
         "{DRIVE_DATA}": make_data(9000, drive_body),
         "{C64_DATA_START}": str(c64_data_start),

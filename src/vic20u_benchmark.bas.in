@@ -1,0 +1,73 @@
+1 poke828,86:poke829,85:poke830,0:goto100
+21 poke828,86:poke829,85:poke830,1:goto100
+22 poke828,86:poke829,85:poke830,2:goto100
+23 poke828,86:poke829,85:poke830,3:goto100
+100 poke45,000:poke46,000:poke55,{MEMTOP_LOW}:poke56,{MEMTOP_HIGH}:clr
+110 tw={TOTAL_WORK}:di={DRIVE_IMAGE_ADDR}:dl={DRIVE_IMAGE_LEN}:dp={DRIVE_PARAMS_DEC}
+120 md=0:if peek(828)=86 and peek(829)=85 then md=peek(830)
+130 poke828,0:poke829,0:poke830,0:if md<0 or md>3 then md=0
+140 print chr$(147);"vic20u+1541 ui-":print "k:8 9 10":print "p t eff":print
+150 if md<>0 then gosub900:end
+160 d=8:gosub1100:gosub2000:d=9:gosub1100:gosub2000
+170 d=10:gosub1100:gosub2000:for md=1 to 3:gosub8000:next
+180 print#8,"u4":close8:print#9,"u4":close9
+190 print#10,"u4":close10:end
+900 d=8:gosub1100:gosub2000
+910 if md>1 then d=9:gosub1100:gosub2000
+920 if md>2 then d=10:gosub1100:gosub2000
+930 gosub8000:print#8,"u4":close8
+940 if md>1 then print#9,"u4":close9
+950 if md>2 then print#10,"u4":close10
+960 p=fre(0):return
+1100 open d,d,15,"ui-":return
+2000 p=fre(0):p=0
+2010 if p>=dl then return
+2020 c={DRIVE_CHUNK}:if p+c>dl then c=dl-p
+2030 s$=""
+2040 for i=0 to c-1:s$=s$+chr$(peek(di+p+i)):next
+2050 n={DRIVE_LOAD_DEC}+p:w=n-256*int(n/256)
+2060 print#d,"m-w"+chr$(w)+chr$(int(n/256))+chr$(c)+s$
+2070 s$="":p=p+c:goto2010
+4000 s$=chr$(n-256*int(n/256))+chr$(int(n/256))+chr$(al)
+4005 s$=s$+chr$(0)+chr$(0)+chr$(0)+chr$(ah)
+4010 print#d,"m-w"+chr$(dp-256*int(dp/256))+chr$(int(dp/256))+chr$(7)+s$
+4020 s$="":return
+5000 print#d,"u3":return
+6000 print#d,"m-r"+chr$(dp+3-256*int((dp+3)/256))+chr$(int((dp+3)/256))
+6010 a$="":get#d,a$:sv=0:if a$<>"" then sv=asc(a$)
+6020 return
+6100 print#d,"m-r"+chr$(dp+4-256*int((dp+4)/256))+chr$(int((dp+4)/256))
+6110 a$="":get#d,a$:rv=0:if a$<>"" then rv=asc(a$)
+6120 print#d,"m-r"+chr$(dp+5-256*int((dp+5)/256))+chr$(int((dp+5)/256))
+6130 a$="":get#d,a$:if a$<>"" then rv=rv+256*asc(a$)
+6140 return
+6200 b=0:if n8<0 then d=8:gosub6100:b=b+rv
+6210 if n9<0 then d=9:gosub6100:b=b+rv
+6220 if na<0 then d=10:gosub6100:b=b+rv
+6230 ej=ti-j0:if ej<0 then ej=ej+5184000
+6240 tm=ej/{JIFFIES_PER_SECOND}:p=4*b/tw
+6250 if md=1 then t1=tm
+6260 z=0:if n8<>0 then z=z+1
+6261 if n9<>0 then z=z+1
+6262 if na<>0 then z=z+1
+6270 p=int(p*10000+.5)/10000:tm=int(tm*10+.5)/10
+6280 w=0:if tm>0 and z>0 then w=int(t1/tm/z*100+.5)/100
+6290 print " ";p;tm;w:return
+8000 n8=0:n9=0:na=0
+8010 if md=1 then n8=tw:goto8200
+8020 if md=2 then n8=int(tw/2):n9=tw-n8:goto8200
+8030 n8=int(tw/3):n9=n8:na=tw-n8-n9
+8200 print "m";chr$(48+md);" ";
+8205 n=n8:gosub8600:n=n9:gosub8600:n=na:gosub8600:print "..."
+8210 j0=ti
+8220 if n8>0 then n=n8:al={DRIVE8_SEED_LO_DEC}:ah={DRIVE8_SEED_HI_DEC}:d=8:gosub4000:gosub5000
+8230 if n9>0 then n=n9:al={DRIVE9_SEED_LO_DEC}:ah={DRIVE9_SEED_HI_DEC}:d=9:gosub4000:gosub5000
+8240 if na>0 then n=na:al={DRIVE10_SEED_LO_DEC}:ah={DRIVE10_SEED_HI_DEC}:d=10:gosub4000:gosub5000
+8300 if n8<=0 and n9<=0 and na<=0 then gosub6200:return
+8310 if n8>0 then d=8:gosub6000:if sv=2 then n8=-n8
+8320 if n9>0 then d=9:gosub6000:if sv=2 then n9=-n9
+8330 if na>0 then d=10:gosub6000:if sv=2 then na=-na
+8340 goto8300
+8600 if n=0 then print "-- ";:return
+8610 n=int(n/1000):if n>=10 then print chr$(48+int(n/10));
+8620 print chr$(48+n-10*int(n/10));" ";:return
