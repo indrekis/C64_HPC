@@ -93,6 +93,7 @@ static void print_sp(void)
     k_bsout(' ');
 }
 
+
 static void __fastcall__ print_2digits(u8 v)
 {
     u8 tens;
@@ -260,19 +261,6 @@ static void print_result(void)
 /* ------------------------------------------------------------------------- */
 /* KERNAL IEC helpers.  Logical file number == device number. */
 
-
-static void __fastcall__ close_one(u8 dev)
-{
-    curdev = dev;
-    k_ckout(curdev);
-    k_bsout(CBM_CMD_U);
-    k_bsout('4');
-    k_bsout(13);
-    k_clrch();
-    k_close(curdev);
-    k_clrch();
-}
-
 static void send_u3(void)
 {
     k_ckout(curdev);
@@ -360,9 +348,15 @@ static void open_upload_all(void)
 
 static void close_all(void)
 {
-    close_one(8);
-    close_one(9);
-    close_one(10);
+	for (curdev = 8; curdev != 11; ++curdev) {
+		k_ckout(curdev);
+		k_bsout(CBM_CMD_U);
+		k_bsout('4');
+		k_bsout(13);
+		k_clrch();
+		k_close(curdev);
+		k_clrch();
+	}
 }
 
 /* ------------------------------------------------------------------------- */
