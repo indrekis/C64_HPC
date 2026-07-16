@@ -350,18 +350,12 @@ static void upload_drive_image(void)
 
 static void open_upload_all(void)
 {
-    curdev = 8;
-    open_cmd_channel(curdev);
-    upload_drive_image();
-
-    curdev = 9;
-    open_cmd_channel(curdev);
-    upload_drive_image();
-
-    curdev = 10;
-    open_cmd_channel(curdev);
-    upload_drive_image();
+    for (curdev = 8; curdev != 11; ++curdev) {
+        open_cmd_channel(curdev);
+        upload_drive_image();
+    }
 }
+
 
 
 static void close_all(void)
