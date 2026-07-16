@@ -21,7 +21,7 @@ typedef unsigned char u8;
 typedef unsigned int  u16;
 
 extern void __fastcall__ k_open_ui_minus(u8 dev);
-extern void __fastcall__ k_open_cmd(u8 dev);
+#define open_cmd_channel(dev) k_open_ui_minus((u8)(dev))
 extern void __fastcall__ k_close(u8 lfn);
 extern void __fastcall__ k_ckout(u8 lfn);
 extern void __fastcall__ k_chkin(u8 lfn);
@@ -41,8 +41,6 @@ extern u16 mul_div_round(u16 value, u16 factor, u16 den);
 #define JIFFY_LO_ADDR 0x00A2u
 #define JIFFY_HI (*(volatile u8*)JIFFY_HI_ADDR)
 #define JIFFY_LO (*(volatile u8*)JIFFY_LO_ADDR)
-
-
 
 
 static u8 mode_idx;
@@ -77,10 +75,6 @@ static u16 print_div;
 /* ------------------------------------------------------------------------- */
 /* Screen and compact decimal output. */
 
-static void __fastcall__ outc(u8 c)
-{
-    k_bsout(c);
-}
 
 static void __fastcall__ print_str(const char* s)
 {
@@ -266,16 +260,6 @@ static void print_result(void)
 /* ------------------------------------------------------------------------- */
 /* KERNAL IEC helpers.  Logical file number == device number. */
 
-static void __fastcall__ open_cmd_channel(u8 dev)
-{
-    k_open_ui_minus(dev);
-}
-
-
-
-
-
-
 
 static void __fastcall__ close_one(u8 dev)
 {
@@ -425,9 +409,6 @@ static void write_drive_params(u16 n, u8 seed_lo, u8 seed_hi)
     k_bsout(13);
     k_clrch();
 }
-
-
-
 
 
 static u8 read_drive_status(void)
@@ -599,25 +580,6 @@ static void run_mode(void)
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 int main(void)
 {
     /* Load the external 1541 payload into screen RAM at $1E20.
@@ -646,8 +608,5 @@ int main(void)
     print_cr();
     return 0;
 }
-
-
-
 
 

@@ -16,7 +16,6 @@ CHROUT = $FFD2
 LOAD   = $FFD5
 
 .export _k_open_ui_minus
-.export _k_open_cmd
 .export _k_close
 .export _k_ckout
 .export _k_chkin
@@ -32,18 +31,6 @@ _k_open_ui_minus:
         lda #3
         ldx #<ui_minus
         ldy #>ui_minus
-        jsr SETNAM
-        pla
-        tax
-        ldy #15
-        jsr SETLFS
-        jmp OPEN
-
-_k_open_cmd:
-        pha
-        lda #0
-        ldx #0
-        ldy #0
         jsr SETNAM
         pla
         tax
