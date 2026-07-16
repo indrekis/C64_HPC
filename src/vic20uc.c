@@ -30,14 +30,18 @@ extern u8 k_basin(void);
 extern void __fastcall__ k_bsout(u8 c);
 
 /*
-static void __fastcall__ print_str(const char* s)
-{
-    while (*s) {
-        k_bsout((u8)*s++);
-    }
-}
-// Asm code is 28 bytes smaller 
-*/
+ * print_str() used to be implemented in C as:
+ *
+ * static void __fastcall__ print_str(const char* s)
+ * {
+ *     while (*s) {
+ *         k_bsout((u8)*s++);
+ *     }
+ * }
+ *
+ * The implementation now lives in vic20uc_kernal.s.
+ * In the unexpanded VIC-20 build this saves 28 bytes versus the C version.
+ */
 extern void __fastcall__ print_str(const char* s);
 extern void k_read_vic20ucdrv(void);
 
@@ -139,28 +143,6 @@ static void print_dec_0_999(void)
     k_bsout((u8)('0' + (u8)print_val));
 }
 
-static void __fastcall__ print_k(u8 k)
-{
-    u8 tens;
-
-    if (k == 0) {
-        k_bsout('-');
-        k_bsout('-');
-        print_sp();
-        return;
-    }
-
-    tens = 0;
-    while (k >= 10) {
-        k -= 10;
-        ++tens;
-    }
-    if (tens) {
-        k_bsout((u8)('0' + tens));
-    }
-    k_bsout((u8)('0' + k));
-    print_sp();
-}
 
 static void print_digit_by_div(void)
 {
@@ -376,16 +358,30 @@ static void load_mode(void)
 
 static void print_mode_line(void)
 {
-    k_bsout('m');
-    k_bsout((u8)('1' + mode_idx));
-    print_sp();
-    print_k(mode_kv[mode_idx]);
-    print_k(mode_k8[mode_idx]);
-    print_k(mode_k9[mode_idx]);
-    print_k(mode_ka[mode_idx]);
-    print_str("...");
+    /* MODE_LINE_x macros are generated from the same K values that used to
+     * feed print_k().  This keeps the UI correct for different TOTAL_WORK
+     * values while avoiding print_k() and the mode_k* runtime tables.
+     */
+    switch (mode_idx) {
+        case 0:
+            print_str(MODE_LINE_0);
+            break;
+        case 1:
+            print_str(MODE_LINE_1);
+            break;
+        case 2:
+            print_str(MODE_LINE_2);
+            break;
+        case 3:
+            print_str(MODE_LINE_3);
+            break;
+        default:
+            print_str(MODE_LINE_4);
+            break;
+    }
     print_cr();
 }
+
 
 static void write_drive_params(u16 n, u8 seed_lo, u8 seed_hi)
 {

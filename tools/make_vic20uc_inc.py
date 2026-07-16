@@ -272,3 +272,75 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+
+# VIC20UC_MODE_LINE_POSTPROCESSOR
+def _vic20uc_postprocess_header_mode_lines() -> None:
+    # Generate MODE_LINE_x macros from mode_k* arrays and remove those arrays.
+    # This preserves the compact UI for arbitrary TOTAL_WORK values while keeping
+    # the final C build smaller: print_mode_line() prints generated strings and no
+    # longer needs print_k() or mode_kv/mode_k8/mode_k9/mode_ka in RODATA.
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    header_path = root / "src" / "generated_vic20uc.h"
+    if not header_path.exists():
+        return
+
+    text = header_path.read_text(encoding="utf-8")
+
+    def extract_u8_array(name: str) -> list[int]:
+        m = re.search(
+            rf"(?ms)^[ \t]*(?:static[ \t]+)?const[ \t]+(?:u8|unsigned[ \t]+char|char)"
+            rf"[ \t]+{name}[ \t]*\[[^\]]*\][ \t]*=[ \t]*\{{(.*?)\}}[ \t]*;",
+            text,
+        )
+        if not m:
+            raise RuntimeError(f"generated_vic20uc.h: cannot find {name}[] for MODE_LINE generation")
+        vals = re.findall(r"0x[0-9A-Fa-f]+|\d+", m.group(1))
+        return [int(v, 0) for v in vals]
+
+    kv = extract_u8_array("mode_kv")
+    k8 = extract_u8_array("mode_k8")
+    k9 = extract_u8_array("mode_k9")
+    ka = extract_u8_array("mode_ka")
+    if not (len(kv) == len(k8) == len(k9) == len(ka) == 5):
+        raise RuntimeError("generated_vic20uc.h: expected five mode_k* values for MODE_LINE generation")
+
+    def fmt_k(v: int) -> str:
+        return "--" if v == 0 else str(v)
+
+    lines = [
+        f'#define MODE_LINE_{i} "m{i + 1} {fmt_k(kv[i])} {fmt_k(k8[i])} {fmt_k(k9[i])} {fmt_k(ka[i])}..."'
+        for i in range(5)
+    ]
+
+    # Drop old/generated MODE_LINE defines, then remove the old mode_k* arrays.
+    text = re.sub(r'(?m)^#define[ \t]+MODE_LINE_[0-4][ \t]+".*?"[ \t]*\n', "", text)
+
+    for name in ("mode_kv", "mode_k8", "mode_k9", "mode_ka"):
+        text = re.sub(
+            rf"(?ms)^[ \t]*(?:static[ \t]+)?const[ \t]+(?:u8|unsigned[ \t]+char|char)"
+            rf"[ \t]+{name}[ \t]*\[[^\]]*\][ \t]*=[ \t]*\{{.*?\}}[ \t]*;[ \t]*\n",
+            "",
+            text,
+            count=1,
+        )
+
+    block = "\n/* Generated compact mode header lines. */\n" + "\n".join(lines) + "\n"
+
+    # Insert before the final #endif if the header has a guard; otherwise append.
+    matches = list(re.finditer(r"(?m)^#endif\b.*$", text))
+    if matches:
+        m = matches[-1]
+        text = text[:m.start()] + block + "\n" + text[m.start():]
+    else:
+        text = text.rstrip() + "\n" + block
+
+    header_path.write_text(text, encoding="utf-8")
+
+
+if __name__ == "__main__":
+    _vic20uc_postprocess_header_mode_lines()
