@@ -62,27 +62,23 @@ startup:
         sta ptr1+1
         lda #$00
 
-        ldx #>__BSS_SIZE__
-        beq bss_remainder
+; Compact one-page BSS clear.
+;
+; WARNING: This intentionally handles only __BSS_SIZE__ < 256.  The current
+; linker configs place BSS in the VIC-20 cassette buffer, so it must remain a
+; small single-page block.  If BSS is moved to normal RAM or grows beyond one
+; page, restore the generic page-loop clear code instead of silently wrapping.
+;
+; The assertion is here to make that constraint fail at build/link time rather
+; than become a hard-to-debug startup memory corruption.
+        .assert __BSS_SIZE__ < $0100, error, "vic20uc_startup compact BSS clear requires __BSS_SIZE__ < 256"
 
-bss_page_loop:
-        ldy #$00
-bss_page_byte:
-        sta (ptr1),y
-        iny
-        bne bss_page_byte
-        inc ptr1+1
-        dex
-        bne bss_page_loop
-
-bss_remainder:
         ldy #<__BSS_SIZE__
         beq bss_done
-bss_rem_byte:
+bss_byte_loop:
         dey
         sta (ptr1),y
-        bne bss_rem_byte
-
+        bne bss_byte_loop
 bss_done:
         jsr _main
 
