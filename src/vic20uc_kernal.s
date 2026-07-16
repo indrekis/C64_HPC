@@ -15,6 +15,8 @@ CHRIN  = $FFCF
 CHROUT = $FFD2
 LOAD   = $FFD5
 
+.importzp ptr1
+
 .export _k_open_ui_minus
 .export _k_close
 .export _k_ckout
@@ -23,6 +25,7 @@ LOAD   = $FFD5
 .export _k_basin
 .export _k_bsout
 .export _k_read_vic20ucdrv
+.export _print_str
 
 .segment "CODE"
 
@@ -57,6 +60,21 @@ _k_basin:
 
 _k_bsout:
         jmp CHROUT
+
+_print_str:
+        sta ptr1
+        stx ptr1+1
+        ldy #0
+@loop:
+        lda (ptr1),y
+        beq @done
+        jsr CHROUT
+        iny
+        bne @loop
+        inc ptr1+1
+        bne @loop
+@done:
+        rts
 
 DRIVE_OVERLAY_LOAD = $1E20
 

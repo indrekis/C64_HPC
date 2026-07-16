@@ -28,6 +28,17 @@ extern void __fastcall__ k_chkin(u8 lfn);
 extern void k_clrch(void);
 extern u8 k_basin(void);
 extern void __fastcall__ k_bsout(u8 c);
+
+/*
+static void __fastcall__ print_str(const char* s)
+{
+    while (*s) {
+        k_bsout((u8)*s++);
+    }
+}
+// Asm code is 28 bytes smaller 
+*/
+extern void __fastcall__ print_str(const char* s);
 extern void k_read_vic20ucdrv(void);
 
 extern u16 mul_div_round(u16 value, u16 factor, u16 den);
@@ -75,13 +86,6 @@ static u16 print_div;
 /* ------------------------------------------------------------------------- */
 /* Screen and compact decimal output. */
 
-
-static void __fastcall__ print_str(const char* s)
-{
-    while (*s) {
-        k_bsout((u8)*s++);
-    }
-}
 
 static void print_cr(void)
 {
@@ -343,7 +347,6 @@ static void open_upload_all(void)
         upload_drive_image();
     }
 }
-
 
 
 static void close_all(void)
