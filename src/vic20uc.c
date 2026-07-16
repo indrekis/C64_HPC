@@ -533,7 +533,15 @@ static void compute_numbers(void)
     if (t10 == 0 || workers == 0) {
         eff100 = 0;
     } else {
-        eff100 = mul_div_round(t1, 100u, (u16)(t10 * workers));
+        /* Avoid cc65's mul8 runtime helper for t10 * workers.
+         * workers is not used after compute_numbers(); the next mode reloads
+         * it in load_mode(), so it can safely serve as a small loop counter.
+         */
+        eff100 = 0;
+        do {
+            eff100 = (u16)(eff100 + t10);
+        } while (--workers);
+        eff100 = mul_div_round(t1, 100u, eff100);
     }
 }
 
