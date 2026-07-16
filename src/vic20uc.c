@@ -60,7 +60,6 @@ extern u16 mul_div_round(u16 value, u16 factor, u16 den);
 
 static u8 mode_idx;
 static u8 workers;
-static u8 curdev;
 static u8 s8;
 static u8 s9;
 static u8 sa;
@@ -247,18 +246,19 @@ static void print_result(void)
 /* ------------------------------------------------------------------------- */
 /* KERNAL IEC helpers.  Logical file number == device number. */
 
-static void send_u3(void)
+static void __fastcall__ send_u3(u8 dev)
 {
-    k_ckout(curdev);
+    k_ckout(dev);
     k_bsout(CBM_CMD_U);
     k_bsout('3');
     k_bsout(13);
     k_clrch();
 }
 
-static void send_mw_header(u16 addr, u8 count)
+
+static void send_mw_header(u8 dev, u16 addr, u8 count)
 {
-    k_ckout(curdev);
+    k_ckout(dev);
     k_bsout(CBM_CMD_M);
     k_bsout('-');
     k_bsout(CBM_CMD_W);
@@ -267,11 +267,12 @@ static void send_mw_header(u16 addr, u8 count)
     k_bsout(count);
 }
 
-static u8 __fastcall__ read_byte_addr(u16 addr)
+
+static u8 read_byte_addr(u8 dev, u16 addr)
 {
     u8 v;
 
-    k_ckout(curdev);
+    k_ckout(dev);
     k_bsout(CBM_CMD_M);
     k_bsout('-');
     k_bsout(CBM_CMD_R);
@@ -280,21 +281,22 @@ static u8 __fastcall__ read_byte_addr(u16 addr)
     k_bsout(13);
     k_clrch();
 
-    k_chkin(curdev);
+    k_chkin(dev);
     v = k_basin();
     k_clrch();
     return v;
 }
 
+
 /* Upload one non-contiguous 1541 RAM segment via M-W chunks. */
-static void upload_segment(u16 addr, const u8* src, u16 rem)
+static void upload_segment(u8 dev, u16 addr, const u8* src, u16 rem)
 {
     u8 count;
     u8 i;
 
     while (rem) {
         count = (rem > 32u) ? 32u : (u8)rem;
-        send_mw_header(addr, count);
+        send_mw_header(dev, addr, count);
         for (i = 0; i != count; ++i) {
             k_bsout(src[i]);
         }
@@ -307,42 +309,49 @@ static void upload_segment(u16 addr, const u8* src, u16 rem)
     }
 }
 
+
 /* Upload the generated non-contiguous 1541 image.
  *
  * For the +3K full-overlay build, VIC20UCDRV is loaded at $1900 as a
  * sparse/contiguous view of the 1541 address space.  DRIVE_SEGx_PTR values
  * are therefore $1900 + (DRIVE_SEGx_ADDR - DRIVE_LOAD), except for q_table.
  */
-static void upload_drive_image(void)
+static void __fastcall__ upload_drive_image(u8 dev)
 {
-    upload_segment(DRIVE_SEG0_ADDR, DRIVE_SEG0_PTR, DRIVE_SEG0_LEN);
-    upload_segment(DRIVE_SEG1_ADDR, DRIVE_SEG1_PTR, DRIVE_SEG1_LEN);
-    upload_segment(DRIVE_SEG2_ADDR, DRIVE_SEG2_PTR, DRIVE_SEG2_LEN);
-    upload_segment(DRIVE_SEG3_ADDR, DRIVE_SEG3_PTR, DRIVE_SEG3_LEN);
-    upload_segment(DRIVE_SEG4_ADDR, DRIVE_SEG4_PTR, DRIVE_SEG4_LEN);
+    upload_segment(dev, DRIVE_SEG0_ADDR, DRIVE_SEG0_PTR, DRIVE_SEG0_LEN);
+    upload_segment(dev, DRIVE_SEG1_ADDR, DRIVE_SEG1_PTR, DRIVE_SEG1_LEN);
+    upload_segment(dev, DRIVE_SEG2_ADDR, DRIVE_SEG2_PTR, DRIVE_SEG2_LEN);
+    upload_segment(dev, DRIVE_SEG3_ADDR, DRIVE_SEG3_PTR, DRIVE_SEG3_LEN);
+    upload_segment(dev, DRIVE_SEG4_ADDR, DRIVE_SEG4_PTR, DRIVE_SEG4_LEN);
 }
+
 
 static void open_upload_all(void)
 {
-    for (curdev = 8; curdev != 11; ++curdev) {
-        open_cmd_channel(curdev);
-        upload_drive_image();
+    u8 dev;
+
+    for (dev = 8; dev != 11; ++dev) {
+        open_cmd_channel(dev);
+        upload_drive_image(dev);
     }
 }
 
 
 static void close_all(void)
 {
-	for (curdev = 8; curdev != 11; ++curdev) {
-		k_ckout(curdev);
-		k_bsout(CBM_CMD_U);
-		k_bsout('4');
-		k_bsout(13);
-		k_clrch();
-		k_close(curdev);
-		k_clrch();
-	}
+    u8 dev;
+
+    for (dev = 8; dev != 11; ++dev) {
+        k_ckout(dev);
+        k_bsout(CBM_CMD_U);
+        k_bsout('4');
+        k_bsout(13);
+        k_clrch();
+        k_close(dev);
+        k_clrch();
+    }
 }
+
 
 /* ------------------------------------------------------------------------- */
 /* Mode setup, 1541 parameter block handling, and polling. */
@@ -383,9 +392,9 @@ static void print_mode_line(void)
 }
 
 
-static void write_drive_params(u16 n, u8 seed_lo, u8 seed_hi)
+static void write_drive_params(u8 dev, u16 n, u8 seed_lo, u8 seed_hi)
 {
-    send_mw_header(DRIVE_PARAMS, 7);
+    send_mw_header(dev, DRIVE_PARAMS, 7);
     k_bsout((u8)n);
     k_bsout((u8)(n >> 8));
     k_bsout(seed_lo);
@@ -398,35 +407,34 @@ static void write_drive_params(u16 n, u8 seed_lo, u8 seed_hi)
 }
 
 
-static u8 read_drive_status(void)
+static u8 __fastcall__ read_drive_status(u8 dev)
 {
-    return read_byte_addr(DRIVE_STATUS);
+    return read_byte_addr(dev, DRIVE_STATUS);
 }
 
-static void read_one_result(void)
+
+static void __fastcall__ read_one_result(u8 dev)
 {
     u8 lo;
     u8 hi;
 
-    lo = read_byte_addr(DRIVE_RESULT);
-    hi = read_byte_addr(DRIVE_RESULT + 1u);
+    lo = read_byte_addr(dev, DRIVE_RESULT);
+    hi = read_byte_addr(dev, DRIVE_RESULT + 1u);
     inside += (u16)lo | ((u16)hi << 8);
 }
+
 
 static void poll_drives(void)
 {
     for (;;) {
         if (s8 != 2) {
-            curdev = 8;
-            s8 = read_drive_status();
+            s8 = read_drive_status(8);
         }
         if (s9 != 2) {
-            curdev = 9;
-            s9 = read_drive_status();
+            s9 = read_drive_status(9);
         }
         if (sa != 2) {
-            curdev = 10;
-            sa = read_drive_status();
+            sa = read_drive_status(10);
         }
         if (s8 == 2 && s9 == 2 && sa == 2) {
             return;
@@ -434,21 +442,20 @@ static void poll_drives(void)
     }
 }
 
+
 static void read_drive_results(void)
 {
     if (n8) {
-        curdev = 8;
-        read_one_result();
+        read_one_result(8);
     }
     if (n9) {
-        curdev = 9;
-        read_one_result();
+        read_one_result(9);
     }
     if (na) {
-        curdev = 10;
-        read_one_result();
+        read_one_result(10);
     }
 }
+
 
 /* ------------------------------------------------------------------------- */
 /* Local VIC-20 Monte Carlo worker.  Same PRNG semantics as assembly workers. */
@@ -545,21 +552,18 @@ static void run_mode(void)
     start_jiffy = read_jiffy16();
 
     if (n8) {
-        curdev = 8;
-        write_drive_params(n8, D8_SEED_LO, D8_SEED_HI);
-        send_u3();
+        write_drive_params(8, n8, D8_SEED_LO, D8_SEED_HI);
+        send_u3(8);
         s8 = 0;
     }
     if (n9) {
-        curdev = 9;
-        write_drive_params(n9, D9_SEED_LO, D9_SEED_HI);
-        send_u3();
+        write_drive_params(9, n9, D9_SEED_LO, D9_SEED_HI);
+        send_u3(9);
         s9 = 0;
     }
     if (na) {
-        curdev = 10;
-        write_drive_params(na, D10_SEED_LO, D10_SEED_HI);
-        send_u3();
+        write_drive_params(10, na, D10_SEED_LO, D10_SEED_HI);
+        send_u3(10);
         sa = 0;
     }
 
