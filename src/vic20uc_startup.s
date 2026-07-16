@@ -4,7 +4,7 @@
 ;
 ; Build-time selection:
 ;   undefined VIC20UC_3K : unexpanded VIC-20, load $1001, SYS 4112
-;   defined   VIC20UC_3K : VIC-20 +3K,     load $0401, SYS 1040
+;   defined   VIC20UC_3K : VIC-20 +3K,        load $0401, SYS 1040
 ;
 ; BSS is placed in the cassette buffer by the linker config.
 ; The C software stack grows downward from __STACKTOP__ = $1E00.

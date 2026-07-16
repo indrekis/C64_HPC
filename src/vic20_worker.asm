@@ -1,9 +1,11 @@
 ; ============================================================
 ; vic20_worker.asm
+; ca65/ld65 version
 ; VIC-20-side Monte Carlo local worker.
 ;
 ; Mechanical port of c64_worker.asm to the VIC-20 + 3K memory map.
 ; The worker is blocking and returns to BASIC through RTS.
+; Details -- see c64_worker.asm
 ; ============================================================
 
 .include "generated_vic20.inc"

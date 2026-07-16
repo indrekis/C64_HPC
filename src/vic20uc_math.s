@@ -20,8 +20,8 @@
 ; 32-bit multiply/divide helper code into the unexpanded VIC-20 build.
 ; ============================================================
 
-.importzp c_sp
-.export _mul_div_round
+.importzp c_sp     ; import c_sp symbol from the zero page 
+.export _mul_div_round ; export function for other files 
 
 .segment "BSS"
 

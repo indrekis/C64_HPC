@@ -1,9 +1,10 @@
 ; ============================================================
 ; vic20uc_kernal.s
-; Tiny KERNAL I/O wrappers for the experimental cc65 C host.
+; Tiny KERNAL I/O wrappers for the cc65 C host.
 ; Shared by unexpanded and +3K screen-overlay variants.
 ; ============================================================
 
+; KERNAL entry points, details see in the vic20u_asm.asm 
 SETLFS = $FFBA
 SETNAM = $FFBD
 OPEN   = $FFC0
@@ -103,4 +104,4 @@ ui_minus:
         .byte "UI-"
 
 drv_name:
-        .byte "vic20ucdrv"
+        .byte "vic20ucdrv" ; File on disk is named vic20ucdrv.prg 
