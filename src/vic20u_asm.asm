@@ -56,6 +56,7 @@ VIC20_SCREEN = $1E00
 .assert TOTAL_WORK <= $FFFF, error, "TOTAL_WORK must fit in the 16-bit drive protocol"
 .assert JIFFIES_PER_SECOND > 0, error, "JIFFIES_PER_SECOND must be positive"
 .assert JIFFIES_PER_SECOND <= $FFFF, error, "JIFFIES_PER_SECOND must fit in the 16-bit time divider"
+.assert (VIC_SEED_LO + VIC_SEED_HI) > 0, error, "VIC seed must be non-zero"
 .assert Q_OFFSET + 256 <= DRIVE_IMAGE_LEN, error, "Q table is outside the compact drive image"
 
 .segment "LOADADDR"
@@ -721,36 +722,18 @@ run_local_worker:
 ;   - 16-bit right-shifting Galois LFSR,
 ;   - seed stored as seed_hi:seed_lo,
 ;   - rand8 calls rand16 twice and returns the high seed byte.
-; The all-zero LFSR state would remain zero forever, so it is replaced
-; with $5AA5.
+; The generated VIC seed is checked at build time, so rand16 does not
+; repeat the zero-state check in the hot loop.
 rand8:
         jsr rand16
-        jsr rand16
-        rts
+        jmp rand16     ; Tail call: the second step returns directly to the caller
 
 rand16:
-        lda seed_lo
-        bne @seed_ok
+        lsr seed_hi    ; Shift high byte right; C gets its previous bit 0
+        ror seed_lo    ; Shift low byte through C; C gets the old LFSR bit 0
+        bcc @no_xor    ; Apply feedback only when the old bit 0 was 1
         lda seed_hi
-        bne @seed_ok
-        lda #$A5
-        sta seed_lo
-        lda #$5A
-        sta seed_hi
-@seed_ok:
-        lda seed_lo
-        and #$01
-        sta tmp_hi
-        lda seed_hi
-        lsr
-        sta seed_hi
-        lda seed_lo
-        ror           ; ROR shifts A right through the C flag
-        sta seed_lo
-        lda tmp_hi
-        beq @no_xor
-        lda seed_hi
-        eor #$B4      ; A = A XOR $B4
+        eor #$B4       ; A = A XOR $B4
         sta seed_hi
 @no_xor:
         lda seed_hi
