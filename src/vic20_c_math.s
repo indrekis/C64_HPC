@@ -1,5 +1,5 @@
 ; ============================================================
-; vic20uc_math.s
+; vic20_c_math.s
 ; Compact arithmetic helper for the experimental cc65 VIC-20 C host.
 ;
 ; C prototype:

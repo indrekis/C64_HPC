@@ -9,7 +9,7 @@ def parse_int(s: str) -> int:
 
 def main() -> None:
     if len(sys.argv) < 2:
-        raise SystemExit("usage: report_vic20uc_size.py PRG [DRIVE_BIN] [MAP] [EXPECTED_LOAD] [MEM_END]")
+        raise SystemExit("usage: report_vic20_c_size.py PRG [DRIVE_BIN] [MAP] [EXPECTED_LOAD] [MEM_END]")
 
     prg = Path(sys.argv[1])
     data = prg.read_bytes()
@@ -23,7 +23,7 @@ def main() -> None:
     expected = parse_int(sys.argv[4]) if len(sys.argv) > 4 else None
     mem_end = parse_int(sys.argv[5]) if len(sys.argv) > 5 else 0x1DFF
 
-    print("VIC20UC C size report:")
+    print("VIC20_C C size report:")
     print(f"  file: {prg}")
     print(f"  load address: ${load:04X}")
     print(f"  PRG body: {body} bytes")

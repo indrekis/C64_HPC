@@ -6,7 +6,7 @@
 110 tw={TOTAL_WORK}:di={DRIVE_IMAGE_ADDR}:dl={DRIVE_IMAGE_LEN}:dp={DRIVE_PARAMS_DEC}
 120 md=0:if peek(828)=86 and peek(829)=85 then md=peek(830)
 130 poke828,0:poke829,0:poke830,0:if md<0 or md>3 then md=0
-140 print chr$(147);"vic20u+1541 ui-":print "k:8 9 10":print "p t eff":print
+140 print chr$(147);"{TITLE}":print "k:8 9 10":print "p t eff":print
 150 if md<>0 then gosub900:end
 160 d=8:gosub1100:gosub2000:d=9:gosub1100:gosub2000
 170 d=10:gosub1100:gosub2000:for md=1 to 3:gosub8000:next
@@ -22,7 +22,7 @@
 1100 open d,d,15,"ui-":return
 2000 p=fre(0):p=0
 2010 if p>=dl then return
-2020 c={DRIVE_CHUNK}:if p+c>dl then c=dl-p
+2020 c={VIC20_BASIC_UPLOAD_CHUNK}:if p+c>dl then c=dl-p
 2030 s$=""
 2040 for i=0 to c-1:s$=s$+chr$(peek(di+p+i)):next
 2050 n={DRIVE_LOAD_DEC}+p:w=n-256*int(n/256)

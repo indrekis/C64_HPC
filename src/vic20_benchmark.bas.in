@@ -15,15 +15,15 @@
 170 if md=255 then 300
 180 if md<0 or md>mc then 300
 190 if md=0 then 370
-200 print chr$(147):print "vic20+1541 pi":am=0:gosub 910:end
-300 print chr$(147):print "vic20+1541 pi"
+200 print chr$(147);"{TITLE}":am=0:gosub 910:end
+300 print chr$(147);"{TITLE}"
 310 print "run=all 21-";20+mc
 320 print "mode 0=all 1-";mc
 330 input md
 340 if md<0 or md>mc then 320
 350 if md=0 then 370
 360 am=0:gosub 910:end
-370 print chr$(147):print "vic20+1541 pi ui-"
+370 print chr$(147);"{TITLE}"
 371 print "k: v 8 9 10"
 375 print " p t eff":print ""
 376 am=1:d=8:gosub 1110:gosub 2010
@@ -64,7 +64,7 @@
 1240 p=fre(0):return
 2010 p=fre(0):p=0
 2020 if p>=dl then return
-2030 c={DRIVE_CHUNK}:if p+c>dl then c=dl-p
+2030 c={VIC20_BASIC_UPLOAD_CHUNK}:if p+c>dl then c=dl-p
 2040 s$=""
 2050 for i=0 to c-1:s$=s$+chr$(peek(di+p+i)):next
 2060 n=da+p:w=n-256*int(n/256)

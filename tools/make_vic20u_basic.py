@@ -75,7 +75,7 @@ def compact_drive_image() -> tuple[int, bytes]:
             f"compact drive image is too large: {len(body)} bytes leaves start ${addr:04X}"
         )
 
-    (BUILD / "vic20u_drive.bin").write_bytes(body)
+    (BUILD / "vic20_bas_u_drive.bin").write_bytes(body)
     return addr, body
 
 
@@ -89,8 +89,9 @@ def generate_bas() -> None:
     memtop = drive_addr
 
     replacements = {
+        "{VIC20_BASIC_UPLOAD_CHUNK}": str(vic20_basic_upload_chunk()),
+        "{TITLE}": "V20+1541 U BAS PI UI-",
         "{TOTAL_WORK}": str(config.TOTAL_WORK),
-        "{DRIVE_CHUNK}": str(config.DRIVE_CHUNK),
         "{DRIVE_IMAGE_ADDR}": str(drive_addr),
         "{DRIVE_IMAGE_LEN}": str(len(drive_image)),
         "{MEMTOP_LOW}": str(low(memtop)),
@@ -117,10 +118,10 @@ def generate_bas() -> None:
 
     # petcat BASIC V2 mode is happiest with lowercase keywords.
     text = text.lower().encode("ascii", "strict").decode("ascii")
-    out = BUILD / "vic20u_bench.bas"
+    out = BUILD / "vic20_bas_u.bas"
     out.write_text(text, encoding="ascii", newline="\n")
     print(f"wrote {out}")
-    print(f"wrote {BUILD / 'vic20u_drive.bin'}: ${drive_addr:04X}-${drive_addr + len(drive_image) - 1:04X}")
+    print(f"wrote {BUILD / 'vic20_bas_u_drive.bin'}: ${drive_addr:04X}-${drive_addr + len(drive_image) - 1:04X}")
 
 
 def retarget_basic_prg(prg: bytes, new_load: int) -> bytes:
@@ -182,13 +183,22 @@ def append_blob(prg: bytearray, addr: int, blob: bytes, label: str) -> None:
 def package_prg() -> None:
     h = get_host()
     drive_addr, drive_image = compact_drive_image()
-    prg = bytearray(retarget_basic_prg((BUILD / "vic20u_bench_body.prg").read_bytes(), h["basic_load"]))
+    prg = bytearray(retarget_basic_prg((BUILD / "vic20_bas_u_body.prg").read_bytes(), h["basic_load"]))
     set_basic_vartab_placeholder(prg)
     append_blob(prg, drive_addr, drive_image, "1541 drive image")
-    out = BUILD / "vic20u_bench.prg"
+    out = BUILD / "vic20_bas_u.prg"
     out.write_bytes(bytes(prg))
     print(f"wrote {out}")
 
+
+def vic20_basic_upload_chunk() -> int:
+    value = int(getattr(config, "VIC20_BASIC_UPLOAD_CHUNK", 32))
+    if not 1 <= value <= 32:
+        raise ValueError(
+            "VIC20_BASIC_UPLOAD_CHUNK must be in range 1..32; "
+            "it is independent of DRIVE_CHUNK"
+        )
+    return value
 
 def main() -> None:
     ap = argparse.ArgumentParser()

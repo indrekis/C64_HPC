@@ -29,20 +29,32 @@ _start:
         ora ITERHI
         beq done
 
+        ; The all-zero LFSR state would remain zero forever.
+        ; Check it once before entering the hot loop.
+        lda SEEDLO
+        ora SEEDHI
+        bne seed_ready
+        lda #$A5
+        sta SEEDLO
+        lda #$5A
+        sta SEEDHI
+
+seed_ready:
+        ; Keep the low byte of the 16-bit iteration counter in Y.
+        ldy ITERLO
+
 main_loop:
         ; Returns 8-bit random in A -- X coord
         jsr rand8  ; jsr -- Jump to SubRoutine, abs. addr only
-        sta TMPX   ; A->TMPX
         tax        ; "Transfer Accumulator to X": A->X
 
         ; Random Y coord 
         jsr rand8
 
         ; Check if within circle quarter, using the precomputed table
-        cmp TABLE,x 
+        cmp TABLE,x
         bcc inside ; "Branch if Carry is Clear"
-        beq inside ; "Branch if EQual"
-        jmp next_iter
+        bne next_iter ; Equal also falls through to inside
 
 inside:
         ; Increment 16-bit inside counter INHI:INLO.
@@ -51,21 +63,17 @@ inside:
         inc INHI
 
 next_iter:
-        ; Decrement 16-bit iteration counter ITERHI:ITERLO.
-        lda ITERLO
+        ; Decrement the 16-bit iteration counter ITERHI:Y.
+        tya
         bne dec_lo
-
-        lda ITERHI
-        beq done
-
         dec ITERHI
 
 dec_lo:
-        dec ITERLO
-
-        lda ITERLO
+        dey             ; --Y
+        tya
         ora ITERHI
         bne main_loop
+        sty ITERLO      ; Preserve the externally visible zero counter
 
 done:
         ; STATUS = 2 means "finished".
@@ -79,43 +87,15 @@ done:
 ;     SEEDHI:SEEDLO
 ;
 ; The routine updates the 16-bit seed and returns SEEDHI in A.
-; The all-zero LFSR state would remain zero forever,
-; so the code replaces zero seed with $5AA5
+; A zero seed is replaced with $5AA5 once before the main loop.
 rand8:
         jsr rand16
-        jsr rand16
-        rts ; "ReTurn from Subroutine"
+        jmp rand16     ; Tail call: return directly after the second step
 
 rand16:
-        lda SEEDLO
-        beq seedlo_zero
-        jmp seed_ok
-
-seedlo_zero:
-        lda SEEDHI
-        bne seed_ok
-
-        lda #$A5
-        sta SEEDLO
-
-        lda #$5A
-        sta SEEDHI
-
-seed_ok:
-        lda SEEDLO
-        and #$01
-        sta TMPF
-
-        lda SEEDHI
-        lsr
-        sta SEEDHI
-
-        lda SEEDLO
-        ror
-        sta SEEDLO
-
-        lda TMPF
-        beq no_xor
+        lsr SEEDHI     ; Shift high byte right; C gets its previous bit 0
+        ror SEEDLO     ; Shift low byte through C; C gets the old LFSR bit 0
+        bcc no_xor     ; Apply feedback only when the old bit 0 was 1
 
         lda SEEDHI
         eor #$B4
@@ -125,5 +105,5 @@ no_xor:
         lda SEEDHI
         rts
 
-; Expected by the BASIC C64 worker body size: 148 bytes.
-.assert * = C64_LOAD + 148, error, "c64_worker size mismatch: expected 148 bytes"
+; Expected by the BASIC C64 worker body size: 112 bytes.
+.assert * = C64_LOAD + 112, error, "c64_worker size mismatch: expected 112 bytes"

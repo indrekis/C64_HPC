@@ -513,7 +513,7 @@ For the assembly host for the unexpanded VIC-20, memory map is the following:
 | `...-$1DFF` | BSS/runtime variables used by the assembly host. Must still fit below screen memory. |
 | `$1E00-$1FFF` | Default VIC-20 screen RAM. |
 
-Current details can be seen in the ``vic20u_asm.map`` file.
+Current details can be seen in the ``vic20_asm.map`` file.
 
 > Note: ``$00FB-$00FE`` interval contains available locations in zero page.
 
@@ -780,19 +780,19 @@ src/
   vic20_benchmark.bas.in    BASIC V2 template for the VIC-20 + 3K benchmark host
   vic20_worker.asm          6502 local worker code executed on the VIC-20 + 3K
   vic20u_benchmark.bas.in   BASIC V2 template for the unexpanded VIC-20 drive-only host
-  vic20u_asm.asm            one-file unexpanded VIC-20 assembly benchmark with BASIC SYS stub
+  vic20_asm.asm            one-file unexpanded VIC-20 assembly benchmark with BASIC SYS stub
   generated_vic20.inc       generated ca65 constants for the VIC-20 + 3K worker
   generated_vic20.cfg       generated ld65 memory map for the VIC-20 + 3K worker
-  generated_vic20u_asm.inc  generated constants and mode tables for the unexpanded VIC-20 asm host
-  generated_vic20u_asm.cfg  generated ld65 memory map for the unexpanded VIC-20 asm host
+  generated_vic20_asm.inc  generated constants and mode tables for the unexpanded VIC-20 asm host
+  generated_vic20_asm.cfg  generated ld65 memory map for the unexpanded VIC-20 asm host
 
 tools/
   config.py                 shared benchmark, memory-layout, timing, and seed configuration
   make_includes.py          generates ca65 includes and ld65 configs
   make_vic20_basic.py       builds the VIC-20 + 3K BASIC host and appends worker/drive blobs
   make_vic20u_basic.py      builds the unexpanded VIC-20 BASIC drive-only host
-  make_vic20u_asm_inc.py    generates constants and mode tables for the unexpanded VIC-20 asm variant
-  report_vic20u_asm_size.py reports whether the unexpanded VIC-20 asm PRG still fits below screen RAM
+  make_vic20_asm_inc.py    generates constants and mode tables for the unexpanded VIC-20 asm variant
+  report_vic20_asm_size.py reports whether the unexpanded VIC-20 asm PRG still fits below screen RAM
 ```
 
 Comments are absent in the BAS files, because of the tight memory constraints, so some details are here. 

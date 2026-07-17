@@ -1,10 +1,10 @@
 ; ============================================================
-; vic20uc_kernal.s
+; vic20_c_kernal.s
 ; Tiny KERNAL I/O wrappers for the cc65 C host.
 ; Shared by unexpanded and +3K screen-overlay variants.
 ; ============================================================
 
-; KERNAL entry points, details see in the vic20u_asm.asm 
+; KERNAL entry points, details see in the vic20_asm.asm 
 SETLFS = $FFBA
 SETNAM = $FFBD
 OPEN   = $FFC0
@@ -25,7 +25,7 @@ LOAD   = $FFD5
 .export _k_clrch
 .export _k_basin
 .export _k_bsout
-.export _k_read_vic20ucdrv
+.export _k_read_vic20_c_drv
 .export _print_str
 
 .segment "CODE"
@@ -81,8 +81,8 @@ DRIVE_OVERLAY_LOAD = $1E20
 
 ; Load vic20ucdrv as a PRG into screen RAM.  The lowercase filename is required:
 ; c1541 writes the D64 entry as "vic20ucdrv".
-_k_read_vic20ucdrv:
-        lda #10
+_k_read_vic20_c_drv:
+        lda #drv_name_end - drv_name
         ldx #<drv_name
         ldy #>drv_name
         jsr SETNAM
@@ -104,4 +104,5 @@ ui_minus:
         .byte "UI-"
 
 drv_name:
-        .byte "vic20ucdrv" ; File on disk is named vic20ucdrv.prg 
+        .byte "vic20ucdrv" ; D64 directory name
+drv_name_end:

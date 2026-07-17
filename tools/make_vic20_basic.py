@@ -121,8 +121,9 @@ def generate_bas(mode: str) -> None:
     d10_seed = drive_seed(10, (211, 57))
 
     replacements = {
+        "{VIC20_BASIC_UPLOAD_CHUNK}": str(vic20_basic_upload_chunk()),
+        "{TITLE}": "V20+1541 3 BAS PI UI-",
         "{TOTAL_WORK}": str(config.TOTAL_WORK),
-        "{DRIVE_CHUNK}": str(config.DRIVE_CHUNK),
         "{VIC_WEIGHT}": str(getattr(config, "VIC_WEIGHT", DEFAULT_VIC_WEIGHT)),
         "{DRIVE_WEIGHT}": str(config.DRIVE_WEIGHT),
         "{VIC_WORKER_ADDR}": str(v["worker_load"]),
@@ -267,6 +268,15 @@ def package_prg(mode: str) -> None:
     out_prg.write_bytes(bytes(prg))
     print(f"wrote {out_prg}")
 
+
+def vic20_basic_upload_chunk() -> int:
+    value = int(getattr(config, "VIC20_BASIC_UPLOAD_CHUNK", 32))
+    if not 1 <= value <= 32:
+        raise ValueError(
+            "VIC20_BASIC_UPLOAD_CHUNK must be in range 1..32; "
+            "it is independent of DRIVE_CHUNK"
+        )
+    return value
 
 def main() -> None:
     ap = argparse.ArgumentParser()

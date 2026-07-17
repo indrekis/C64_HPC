@@ -1,9 +1,9 @@
 /*
- * src/vic20uc.c
+ * src/vic20_c.c
  *
  * Unexpanded VIC-20 + 1541 Monte Carlo benchmark host, written in C for cc65.
  *
- * This is a C counterpart of src/vic20u_asm.asm.  The 1541 worker still stays
+ * This is a C counterpart of src/vic20_asm.asm.  The 1541 worker still stays
  * in hand-written 6502 assembly.  The VIC-20 host opens drive command channels,
  * uploads the compact 1541 image with M-W, starts workers with U3, polls status
  * with M-R, runs an optional local VIC-20 worker, and prints the same compact
@@ -15,8 +15,19 @@
  * wrappers for this memory-constrained target.
  */
 
-#include "generated_vic20uc.h"
+#include "generated_vic20_c.h"
 
+
+/* --- VIC-20 variant title: begin --- */
+/*
+ * Lowercase source is required: cc65 converts it to uppercase PETSCII.
+ */
+#ifdef VIC20_C_3K
+#define VIC20_VARIANT_TITLE "v20+1541 3 c65 pi ui-"
+#else
+#define VIC20_VARIANT_TITLE "v20+1541 u c65 pi ui-"
+#endif
+/* --- VIC-20 variant title: end --- */
 typedef unsigned char u8;
 typedef unsigned int  u16;
 
@@ -39,11 +50,11 @@ extern void __fastcall__ k_bsout(u8 c);
  *     }
  * }
  *
- * The implementation now lives in vic20uc_kernal.s.
+ * The implementation now lives in vic20_c_kernal.s.
  * In the unexpanded VIC-20 build this saves 28 bytes versus the C version.
  */
 extern void __fastcall__ print_str(const char* s);
-extern void k_read_vic20ucdrv(void);
+extern void k_read_vic20_c_drv(void);
 
 extern u16 mul_div_round(u16 value, u16 factor, u16 den);
 
@@ -248,7 +259,7 @@ static void print_result(void)
 /* 32-bit arithmetic helper.
  *
  * The generic expression round(value * factor / den) is implemented in
- * src/vic20uc_math.s.  Keeping it in assembly preserves arbitrary TOTAL_WORK
+ * src/vic20_c_math.s.  Keeping it in assembly preserves arbitrary TOTAL_WORK
  * values while avoiding the very large cc65 output generated for the same
  * 32-bit multiply/divide code in C.
  */
@@ -318,9 +329,9 @@ static void upload_segment_current(u16 addr, const u8* src, u16 rem)
 
 /* Upload the generated non-contiguous 1541 image.
  *
- * For the +3K full-overlay build, VIC20UCDRV is loaded at $1900 as a
+ * The external overlay file vic20_c_drv is loaded at $1E20 as a
  * sparse/contiguous view of the 1541 address space.  DRIVE_SEGx_PTR values
- * are therefore $1900 + (DRIVE_SEGx_ADDR - DRIVE_LOAD), except for q_table.
+ * are therefore $1E20 + (DRIVE_SEGx_ADDR - DRIVE_LOAD), except for q_table.
  */
 static void upload_drive_image_current(void)
 {
@@ -591,11 +602,11 @@ int main(void)
      * is cleared for normal output.
      */
     k_bsout(147);
-    k_read_vic20ucdrv();
+    k_read_vic20_c_drv();
     open_upload_all();
 
     k_bsout(147);
-	print_str("vic20+1541 cc65 pi ui-");
+	print_str(VIC20_VARIANT_TITLE);
 	print_cr();
     print_str("k: v 8 9 10");
     print_cr();

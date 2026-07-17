@@ -1,6 +1,10 @@
 TOTAL_WORK = 60000
 DRIVE_CHUNK = 58
 
+
+# Payload bytes per M-W command issued by VIC-20 BASIC hosts.
+# Independent of DRIVE_CHUNK, which is the 1541 job quantum.
+VIC20_BASIC_UPLOAD_CHUNK = 32
 # Work distribution weights.
 # Higher value means larger share of total work.
 # For example, CW=80, DW=100 means C64 gets less work than each 1541.

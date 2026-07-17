@@ -1,10 +1,10 @@
 ; ============================================================
-; vic20u_asm.asm
+; vic20_asm.asm
 ; ca65/ld65 version
-; Unexpanded VIC-20 + 1541 Monte Carlo benchmark
+; VIC-20 + 1541 Monte Carlo benchmark: unexpanded or +3K
 ;
-; One-file PRG for an unexpanded VIC-20:
-;   - tiny BASIC V2 loader stub: 10 SYS 4112
+; One-file PRG for an unexpanded or +3K VIC-20:
+;   - tiny BASIC V2 loader stub: 10 SYS 4112 or 10 SYS 1040
 ;   - 6502 host/scheduler code
 ;   - KERNAL IEC serial-bus routines
 ;   - local VIC-20 Monte Carlo worker
@@ -13,12 +13,12 @@
 ; BASIC is only used to start the machine-code program through the SYS stub.
 ;
 ; All generated constants, mode tables, seeds, and memory-layout values
-; are produced by tools/make_vic20u_asm_inc.py from info in tools/config.py.
+; are produced by tools/make_vic20_asm_inc.py from info in tools/config.py.
 ;
 ; I have commented commands I can forget or whatever.
 ; ============================================================
 
-.include "src/generated_vic20u_asm.inc"
+.include "src/generated_vic20_asm.inc"
 
 ; ============================================================
 ; KERNAL entry points used by the host. All screen output and
@@ -59,27 +59,46 @@ VIC20_SCREEN = $1E00
 .assert (VIC_SEED_LO + VIC_SEED_HI) > 0, error, "VIC seed must be non-zero"
 .assert Q_OFFSET + 256 <= DRIVE_IMAGE_LEN, error, "Q table is outside the compact drive image"
 
+.ifdef VIC20_ASM_3K
+LOAD_ADDR = $0401
+NEXT_PTR  = $040B
+.else
+LOAD_ADDR = $1001
+NEXT_PTR  = $100B
+.endif
+
 .segment "LOADADDR"
-        ; PRG load address.  On an unexpanded VIC-20, BASIC starts at $1001.
-        .word $1001
+        ; PRG load address selected at build time.
+        .word LOAD_ADDR
 
 .segment "STARTUP"
 
+; The stub lets the PRG be loaded and started like a normal BASIC
+; program, while keeping the runtime code fully in machine language
+
+.ifdef VIC20_ASM_3K
+        ; Minimal tokenized BASIC line:
+        ;   10 SYS 1040
+        ;
+        ; 1040 decimal is $0410, where the real assembly program starts.
+        .word NEXT_PTR
+        .word 10
+        .byte $9E,"1040",0
+        .word 0
+.else
         ; Minimal tokenized BASIC line:
         ;   10 SYS 4112
         ;
         ; 4112 decimal is $1010, where the real assembly program starts.
-        ; The stub lets the PRG be loaded and started like a normal BASIC
-        ; program, while keeping the runtime code fully in machine language.
-        .word $100B
+        .word NEXT_PTR
         .word 10
         .byte $9E,"4112",0
         .word 0
+.endif
 
-        ; The BASIC stub above occupies $1001..$100C.
-        ; Pad explicitly to $1010, reserving 3 bytes.
+        ; Both BASIC stubs have the same length.
+        ; Pad to $0410 or $1010, reserving 3 bytes.
         .res 3
-
 .segment "CODE"
 
 ; ============================================================
@@ -1301,20 +1320,26 @@ digit_sub_optional:
 
 .segment "RODATA"
 
-title:    .byte "VIC20+1541 ASM PI UI-",13,0
+; --- VIC-20 variant title: begin ---
+.ifdef VIC20_ASM_3K
+title:    .byte "V20+1541 3 ASM PI UI-",13,0
+.else
+title:    .byte "V20+1541 U ASM PI UI-",13,0
+.endif
+; --- VIC-20 variant title: end ---
 hdr1:     .byte "K: V 8 9 10",13,0
 hdr2:     .byte " P T EFF",13,0
 dots_msg: .byte "...",13,0
 done_msg: .byte "DONE",13,0
 ui_name:  .byte "UI-"
 
-; Generated mode tables are included earlier from src/generated_vic20u_asm.inc.
+; Generated mode tables are included earlier from src/generated_vic20_asm.inc.
 ; The embedded drive image contains both the 1541 code and the Q table.
 ; It is uploaded to each real/simulated 1541 at startup.
 drive_image:
-        .incbin "build/vic20u_asm_drive.bin"
+        .incbin "build/vic20_asm_drive.bin"
 drive_image_end:
-        .assert drive_image_end - drive_image = DRIVE_IMAGE_LEN, error, "bad VIC20U ASM drive image length"
+        .assert drive_image_end - drive_image = DRIVE_IMAGE_LEN, error, "bad VIC20 ASM drive image length"
 
 .segment "BSS"
 

@@ -4,8 +4,8 @@ from pathlib import Path
 import re
 import sys
 
-LOAD_EXPECTED = 0x1001
-SCREEN_START = 0x1E00
+DEFAULT_LOAD_EXPECTED = 0x1001
+DEFAULT_SCREEN_START = 0x1E00
 
 
 def parse_hex(s: str) -> int:
@@ -33,16 +33,23 @@ def parse_segments(map_path: Path) -> dict[str, tuple[int, int, int]]:
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) not in (3, 4):
+    if len(argv) not in (3, 4, 5, 6):
         print(
-            "usage: report_vic20u_asm_size.py <prg> <drive_image_bin> [mapfile]",
+            "usage: report_vic20_asm_size.py "
+            "<prg> <drive_image_bin> [mapfile] [expected_load] [ram_limit]",
             file=sys.stderr,
         )
         return 2
 
     prg_path = Path(argv[1])
     drive_path = Path(argv[2])
-    map_path = Path(argv[3]) if len(argv) == 4 else None
+    map_path = Path(argv[3]) if len(argv) >= 4 else None
+    expected_load = (
+        parse_hex(argv[4]) if len(argv) >= 5 else DEFAULT_LOAD_EXPECTED
+    )
+    screen_start = (
+        parse_hex(argv[5]) if len(argv) >= 6 else DEFAULT_SCREEN_START
+    )
 
     data = prg_path.read_bytes()
     if len(data) < 3:
@@ -52,14 +59,14 @@ def main(argv: list[str]) -> int:
     body_first_free = load + body_size
     body_last = body_first_free - 1
 
-    if load != LOAD_EXPECTED:
+    if load != expected_load:
         raise SystemExit(
-            f"VIC20U ASM load address is ${load:04X}, expected ${LOAD_EXPECTED:04X}"
+            f"VIC20 ASM load address is ${load:04X}, expected ${expected_load:04X}"
         )
-    if body_first_free > SCREEN_START:
+    if body_first_free > screen_start:
         raise SystemExit(
-            f"VIC20U ASM PRG body reaches ${body_first_free:04X}, "
-            f"beyond screen start ${SCREEN_START:04X}"
+            f"VIC20 ASM PRG body reaches ${body_first_free:04X}, "
+            f"beyond screen start ${screen_start:04X}"
         )
 
     drive_size = drive_path.stat().st_size if drive_path.exists() else 0
@@ -74,20 +81,20 @@ def main(argv: list[str]) -> int:
         else:
             bss_info = f"empty at ${bss_start:04X}"
 
-    free_after_body = SCREEN_START - body_first_free
-    free_after_bss = SCREEN_START - ram_first_free
+    free_after_body = screen_start - body_first_free
+    free_after_bss = screen_start - ram_first_free
     if free_after_bss < 0:
         raise SystemExit(
-            f"VIC20U ASM RAM use reaches ${ram_first_free:04X}, "
-            f"beyond screen start ${SCREEN_START:04X}"
+            f"VIC20 ASM RAM use reaches ${ram_first_free:04X}, "
+            f"beyond screen start ${screen_start:04X}"
         )
 
-    print("VIC20U ASM size report:")
+    print("VIC20 ASM size report:")
     print(f"  PRG body:       ${load:04X}-${body_last:04X} ({body_size} bytes)")
     print(f"  1541 image:     {drive_size} bytes")
     print(f"  BSS:            {bss_info}")
-    print(f"  free after PRG: {free_after_body} bytes before screen ${SCREEN_START:04X}")
-    print(f"  free after BSS: {free_after_bss} bytes before screen ${SCREEN_START:04X}")
+    print(f"  free after PRG: {free_after_body} bytes before screen ${screen_start:04X}")
+    print(f"  free after BSS: {free_after_bss} bytes before screen ${screen_start:04X}")
     return 0
 
 

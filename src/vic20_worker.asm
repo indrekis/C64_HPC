@@ -28,16 +28,28 @@ _start:
         ora ITERHI
         beq done
 
+        ; The all-zero LFSR state would remain zero forever.
+        ; Check it once before entering the hot loop.
+        lda SEEDLO
+        ora SEEDHI
+        bne seed_ready
+        lda #$A5
+        sta SEEDLO
+        lda #$5A
+        sta SEEDHI
+
+seed_ready:
+        ; Keep the low byte of the 16-bit iteration counter in Y.
+        ldy ITERLO
+
 main_loop:
         jsr rand8
-        sta TMPX
         tax
 
         jsr rand8
         cmp TABLE,x
         bcc inside
-        beq inside
-        jmp next_iter
+        bne next_iter ; Equal also falls through to inside
 
 inside:
         inc INLO
@@ -45,17 +57,17 @@ inside:
         inc INHI
 
 next_iter:
-        lda ITERLO
+        ; Decrement the 16-bit iteration counter ITERHI:Y.
+        tya
         bne dec_lo
-        lda ITERHI
-        beq done
         dec ITERHI
 
 dec_lo:
-        dec ITERLO
-        lda ITERLO
+        dey             ; --Y
+        tya
         ora ITERHI
         bne main_loop
+        sty ITERLO      ; Preserve the externally visible zero counter
 
 done:
         lda #$02
@@ -64,34 +76,12 @@ done:
 
 rand8:
         jsr rand16
-        jsr rand16
-        rts
+        jmp rand16     ; Tail call: return directly after the second step
 
 rand16:
-        lda SEEDLO
-        beq seedlo_zero
-        jmp seed_ok
-
-seedlo_zero:
-        lda SEEDHI
-        bne seed_ok
-        lda #$A5
-        sta SEEDLO
-        lda #$5A
-        sta SEEDHI
-
-seed_ok:
-        lda SEEDLO
-        and #$01
-        sta TMPF
-        lda SEEDHI
-        lsr
-        sta SEEDHI
-        lda SEEDLO
-        ror
-        sta SEEDLO
-        lda TMPF
-        beq no_xor
+        lsr SEEDHI     ; Shift high byte right; C gets its previous bit 0
+        ror SEEDLO     ; Shift low byte through C; C gets the old LFSR bit 0
+        bcc no_xor     ; Apply feedback only when the old bit 0 was 1
         lda SEEDHI
         eor #$B4
         sta SEEDHI

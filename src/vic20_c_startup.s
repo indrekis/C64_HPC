@@ -1,10 +1,10 @@
 ; ============================================================
-; vic20uc_startup.s
+; vic20_c_startup.s
 ; Minimal cc65 startup for both VIC-20 C host variants.
 ;
 ; Build-time selection:
-;   undefined VIC20UC_3K : unexpanded VIC-20, load $1001, SYS 4112
-;   defined   VIC20UC_3K : VIC-20 +3K,        load $0401, SYS 1040
+;   undefined VIC20_C_3K : unexpanded VIC-20, load $1001, SYS 4112
+;   defined   VIC20_C_3K : VIC-20 +3K,        load $0401, SYS 1040
 ;
 ; BSS is placed in the cassette buffer by the linker config.
 ; The C software stack grows downward from __STACKTOP__ = $1E00.
@@ -17,7 +17,7 @@
 .import __STACKTOP__
 .export __STARTUP__
 
-.ifdef VIC20UC_3K
+.ifdef VIC20_C_3K
 LOAD_ADDR = $0401
 NEXT_PTR  = $040B
 .else
@@ -32,7 +32,7 @@ NEXT_PTR  = $100B
 
 __STARTUP__:
 
-.ifdef VIC20UC_3K
+.ifdef VIC20_C_3K
 ; 10 SYS 1040
         .word NEXT_PTR
         .word 10
@@ -71,7 +71,7 @@ startup:
 ;
 ; The assertion is here to make that constraint fail at build/link time rather
 ; than become a hard-to-debug startup memory corruption.
-        .assert __BSS_SIZE__ < $0100, error, "vic20uc_startup compact BSS clear requires __BSS_SIZE__ < 256"
+        .assert __BSS_SIZE__ < $0100, error, "vic20_c_startup compact BSS clear requires __BSS_SIZE__ < 256"
 
         ldy #<__BSS_SIZE__
         beq bss_done
