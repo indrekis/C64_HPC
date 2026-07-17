@@ -685,9 +685,9 @@ read_one_result:
 ; ============================================================
 
 run_local_worker:
-        ; local_hi:local_lo is the remaining local iteration counter.
-        lda nv_lo
-        sta local_lo
+        ; local_hi:Y is the remaining local iteration counter.
+        ; run_mode calls this routine only when nv_hi:nv_lo is non-zero.
+        ldy nv_lo
         lda nv_hi
         sta local_hi
         lda #VIC_SEED_LO
@@ -695,27 +695,25 @@ run_local_worker:
         lda #VIC_SEED_HI
         sta seed_hi
 @loop:  ; Generate X and Y, then test Y <= Q[X].
-        lda local_lo
-        ora local_hi
-        beq @done
         jsr rand8
         tax
         jsr rand8
         cmp drive_image+Q_OFFSET,x
         bcc @inside
-        beq @inside
-        jmp @dec
+        bne @dec
 @inside:
         inc inside_lo
         bne @dec
         inc inside_hi
-@dec:   lda local_lo
+@dec:   tya
         bne @dec_lo
-        dec local_hi   ; -- for the 16-bit 
+        dec local_hi   ; -- for the 16-bit
 @dec_lo:
-        dec local_lo
-        jmp @loop
-@done:  rts
+        dey            ; --Y
+        tya
+        ora local_hi
+        bne @loop
+        rts
 
 ; Returns one pseudo-random byte in A.
 ; Same PRNG as the existing C64/1541 workers:
@@ -1355,7 +1353,6 @@ param_lo:     .res 1
 param_hi:     .res 1
 seed_lo:      .res 1
 seed_hi:      .res 1
-local_lo:     .res 1
 local_hi:     .res 1
 
 ; Total number of random points inside the quarter circle.
