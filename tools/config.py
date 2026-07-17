@@ -1,5 +1,5 @@
 TOTAL_WORK = 60000
-DRIVE_CHUNK = 32
+DRIVE_CHUNK = 58
 
 # Work distribution weights.
 # Higher value means larger share of total work.

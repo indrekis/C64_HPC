@@ -40,6 +40,9 @@
 
 .include "generated_drive.inc"
 
+.assert DRIVE_CHUNK > 0, error, "DRIVE_CHUNK must be positive"
+.assert DRIVE_CHUNK <= $FF, error, "DRIVE_CHUNK must fit in Y"
+
 .export drive_common_start
 .export drive_table_start
 .export drive_ucmd_start
@@ -74,11 +77,10 @@ step_chunk:
         ora ITERHI
         beq done
         
-        ; JOBCNT = DRIVE_CHUNK.
-        ; This is the local counter for the number of Monte Carlo
+        ; Y = DRIVE_CHUNK.
+        ; Y is the local counter for the number of Monte Carlo
         ; iterations performed by one job quantum.
-        lda #DRIVE_CHUNK
-        sta JOBCNT
+        ldy #DRIVE_CHUNK
 
 chunk_loop:
         ; Check before each iteration whether the total work is finished.
@@ -88,7 +90,6 @@ chunk_loop:
         
         ; Generate X
         jsr rand8
-        sta TMPX
         tax
 
         ; Generate Y
@@ -97,8 +98,7 @@ chunk_loop:
        ; Check if within circle quarter, using the precomputed table
         cmp TABLE,x
         bcc inside
-        beq inside
-        jmp next_iter
+        bne next_iter
 
 inside:
         inc INLO
@@ -127,9 +127,9 @@ dec_lo:
 
 no_blink:
         ; One job quantum performs at most DRIVE_CHUNK iterations.
-        ; When JOBCNT reaches zero, return to the caller job.
+        ; When Y reaches zero, return to the caller job.
         ; This is required for not blocking the driver for too long.
-        dec JOBCNT
+        dey             ; --Y
         bne chunk_loop
 
 step_return:
@@ -151,37 +151,12 @@ stopped:
 ; rand8/16 -- same as for C64 worker
 rand8:
         jsr rand16
-        jsr rand16
-        rts
+        jmp rand16     ; Tail call: return directly after the second step
 
 rand16:
-        lda SEEDLO
-        bne seed_ok
-
-        lda SEEDHI
-        bne seed_ok
-
-        lda #$A5
-        sta SEEDLO
-
-        lda #$5A
-        sta SEEDHI
-
-seed_ok:
-        lda SEEDLO
-        and #$01
-        sta TMPF
-
-        lda SEEDHI
-        lsr
-        sta SEEDHI
-
-        lda SEEDLO
-        ror
-        sta SEEDLO
-
-        lda TMPF
-        beq no_xor
+        lsr SEEDHI     ; Shift high byte right; C gets its previous bit 0
+        ror SEEDLO     ; Shift low byte through C; C gets the old LFSR bit 0
+        bcc no_xor     ; Apply feedback only when the old bit 0 was 1
 
         lda SEEDHI
         eor #$B4
@@ -189,6 +164,19 @@ seed_ok:
 
 no_xor:
         lda SEEDHI
+        rts
+
+; Replace the all-zero LFSR state with $5AA5.
+; Called once from start_worker, outside the hot PRNG path.
+normalize_seed:
+        lda SEEDLO
+        ora SEEDHI
+        bne @done
+        lda #$A5
+        sta SEEDLO
+        lda #$5A
+        sta SEEDHI
+@done:
         rts
 
 
@@ -267,6 +255,10 @@ start_worker:
         sta JOB_A_CODE
         sta JOB_B_CODE
 
+        ; The all-zero LFSR state would remain zero forever.
+        ; Check it once before queueing the first job, rather than in rand16.
+        jsr normalize_seed
+
         ; STATUS = 1 means running.
         lda #$01
         sta STATUS
@@ -343,10 +335,10 @@ stop_worker:
         ;   $05D4 INLO
         ;   $05D5 INHI
         ;   $05D6 SEEDHI
-        ;   $05D7 TMPX
-        ;   $05D8 JOBCNT
+        ;   $05D7 reserved (formerly TMPX)
+        ;   $05D8 reserved (formerly JOBCNT)
         ;   $05D9 STOPFLAG
-        ;   $05DA TMPF
+        ;   $05DA reserved (formerly TMPF)
         ;   $05DB BLINKCNT
         ;
         
