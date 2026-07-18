@@ -2,66 +2,48 @@
  * src/vic20_c.c
  *
  * Unexpanded VIC-20 + 1541 Monte Carlo benchmark host, written in C for cc65.
+ * Is compatible with a 3k extension on the source level (not binary).
  *
- * This is a C counterpart of src/vic20_asm.asm.  The 1541 worker still stays
- * in hand-written 6502 assembly.  The VIC-20 host opens drive command channels,
- * uploads the compact 1541 image with M-W, starts workers with U3, polls status
+ * This is a C counterpart of src/vic20_asm.asm.  The 1541 worker still in 
+ * hand-written 6502 assembly.  The VIC-20 host opens drive command channels,
+ * uploads the 1541 image with M-W, starts workers with U3, polls status
  * with M-R, runs an optional local VIC-20 worker, and prints the same compact
  * five-mode report.
  *
- * No stdio, printf, malloc, or heap-heavy helpers are used.  Output and
- * IEC command-channel traffic goes through very small assembly wrappers for
- * the KERNAL jump table.  This avoids pulling in the larger cc65 CBM helper
- * wrappers for this memory-constrained target.
+ * Because of the severe limitations of available memory, almost no runtime code
+ * of the C65 is used -- definitely, no stdio, printf, malloc and so on. 
+ * Output and IEC commands are performed through minimal, tiny assembly wrappers 
+ * for the KERNAL jump table.
  */
 
+/* Important constants, created from the configuration */
 #include "generated_vic20_c.h"
 
-
-/* --- VIC-20 variant title: begin --- */
 /*
  * Lowercase source is required: cc65 converts it to uppercase PETSCII.
+ * Used 21 symbols of the 22 available in the single line.
  */
 #ifdef VIC20_C_3K
 #define VIC20_VARIANT_TITLE "v20+1541 3 c65 pi ui-"
 #else
 #define VIC20_VARIANT_TITLE "v20+1541 u c65 pi ui-"
 #endif
-/* --- VIC-20 variant title: end --- */
+
+
 typedef unsigned char u8;
 typedef unsigned int  u16;
 
-extern void __fastcall__ k_open_ui_minus(u8 dev);
-#define open_cmd_channel(dev) k_open_ui_minus((u8)(dev))
-extern void __fastcall__ k_close(u8 lfn);
-extern void __fastcall__ k_ckout(u8 lfn);
-extern void __fastcall__ k_chkin(u8 lfn);
-extern void k_clrch(void);
-extern u8 k_basin(void);
-extern void __fastcall__ k_bsout(u8 c);
+/* ------------------------------------------------------------------------- */
 
 /*
- * print_str() used to be implemented in C as:
- *
- * static void __fastcall__ print_str(const char* s)
- * {
- *     while (*s) {
- *         k_bsout((u8)*s++);
- *     }
- * }
- *
- * The implementation now lives in vic20_c_kernal.s.
- * In the unexpanded VIC-20 build this saves 28 bytes versus the C version.
- */
-extern void __fastcall__ print_str(const char* s);
-extern void k_read_vic20_c_drv(void);
-
+ * The processor does not have a division or even multiplication command, 
+ * and both the default (general) C65 implementation and self-made C code 
+ * are too costly. So we used a dedicated assembly-coded function 
+ * (src/vic20_c_math.s): 
+ * 
+ * round(value * factor / den)
+*/ 
 extern u16 mul_div_round(u16 value, u16 factor, u16 den);
-
-#define CBM_CMD_M ((u8)0x4Du)
-#define CBM_CMD_R ((u8)0x52u)
-#define CBM_CMD_U ((u8)0x55u)
-#define CBM_CMD_W ((u8)0x57u)
 
 #define JIFFY_HI_ADDR 0x00A1u
 #define JIFFY_LO_ADDR 0x00A2u
@@ -71,15 +53,6 @@ extern u16 mul_div_round(u16 value, u16 factor, u16 den);
 
 static u8 mode_idx;
 static u8 workers;
-/* Current IEC logical file/device.
- *
- * Intentionally global: passing dev through send_mw_header_current(),
- * read_byte_addr_current(), upload_segment_current(), etc. costs more than
- * 100 bytes on cc65.  Treat this as a cached IEC context register, not as
- * benchmark state.
- */
-static u8 iec_dev;
-#define select_iec_device(dev) (iec_dev = (u8)(dev))
 
 static u8 s8;
 static u8 s9;
@@ -98,6 +71,158 @@ static u16 pi10000;
 static u16 eff100;
 static u16 rnd_seed;
 
+
+/* ------------------------------------------------------------------------- */
+/* KERNAL IEC helpers and other IEC I/O.  Logical file number == device number. */
+
+/* To avoid problems of the PETSCII conversions: */
+#define CBM_CMD_M ((u8)0x4Du)
+#define CBM_CMD_R ((u8)0x52u)
+#define CBM_CMD_U ((u8)0x55u)
+#define CBM_CMD_W ((u8)0x57u)
+
+
+/* Current IEC logical file/device.
+ *
+ * Intentionally global: passing dev through send_mw_header_current(),
+ * read_byte_addr_current(), upload_segment_current(), etc. costs more than
+ * 100 bytes on cc65.  Treat this as a cached IEC context register, not as
+ * benchmark state.
+ */
+static u8 iec_dev;
+#define select_iec_device(dev) (iec_dev = (u8)(dev))
+
+
+extern void __fastcall__ k_open_ui_minus(u8 dev);
+#define open_cmd_channel(dev) k_open_ui_minus((u8)(dev))
+extern void __fastcall__ k_close(u8 lfn);
+extern void __fastcall__ k_ckout(u8 lfn);
+extern void __fastcall__ k_chkin(u8 lfn);
+extern void k_clrch(void);
+extern u8 k_basin(void);
+extern void __fastcall__ k_bsout(u8 c);
+
+
+/* "Current" suffix means -- using the iec_dev global var. */
+static void send_u3_current(void)
+{
+    k_ckout(iec_dev);
+    k_bsout(CBM_CMD_U);
+    k_bsout('3');
+    k_bsout(13);
+    k_clrch();
+}
+
+static void send_mw_header_current(u16 addr, u8 count)
+{
+    k_ckout(iec_dev);
+	/* Constructing "M-W" -- avoiding strange inter-coding 
+	 * problems that happened several times */
+    k_bsout(CBM_CMD_M);
+    k_bsout('-');
+    k_bsout(CBM_CMD_W); 
+    k_bsout((u8)addr);
+    k_bsout((u8)(addr >> 8));
+    k_bsout(count);
+}
+
+static u8 __fastcall__ read_byte_addr_current(u16 addr)
+{
+    u8 v;
+
+    k_ckout(iec_dev);
+    k_bsout(CBM_CMD_M);
+    k_bsout('-');
+    k_bsout(CBM_CMD_R);
+    k_bsout((u8)addr);
+    k_bsout((u8)(addr >> 8));
+    k_bsout(13);
+    k_clrch();
+
+    k_chkin(iec_dev);
+    v = k_basin();
+    k_clrch();
+    return v;
+}
+
+/* Upload one non-contiguous 1541 RAM segment via M-W chunks. */
+static void upload_segment_current(u16 addr, const u8* src, u16 rem)
+{
+    u8 count;
+    u8 i;
+    
+	/* TODO: Fix to use chunk from configuration */
+    while (rem) {
+        count = (rem > 32u) ? 32u : (u8)rem;
+        send_mw_header_current(addr, count);
+        for (i = 0; i != count; ++i) {
+            k_bsout(src[i]);
+        }
+        k_bsout(13);
+        k_clrch();
+
+        src += count;
+        addr += count;
+        rem -= count;
+    }
+}
+
+/* Upload the generated non-contiguous 1541 image.
+ * Video RAM is too small for a contiguous image, and we do not have any 
+ * spare memory.
+ *
+ * The external overlay file vic20_c_drv is loaded at $1E20 (videoram) as a
+ * sparse/contiguous view of the 1541 address space.  DRIVE_SEGx_PTR values
+ * are therefore $1E20 + (DRIVE_SEGx_ADDR - DRIVE_LOAD), except for q_table.
+ */
+static void upload_drive_image_current(void)
+{
+    upload_segment_current(DRIVE_SEG0_ADDR, DRIVE_SEG0_PTR, DRIVE_SEG0_LEN);
+    upload_segment_current(DRIVE_SEG1_ADDR, DRIVE_SEG1_PTR, DRIVE_SEG1_LEN);
+    upload_segment_current(DRIVE_SEG2_ADDR, DRIVE_SEG2_PTR, DRIVE_SEG2_LEN);
+    upload_segment_current(DRIVE_SEG3_ADDR, DRIVE_SEG3_PTR, DRIVE_SEG3_LEN);
+    upload_segment_current(DRIVE_SEG4_ADDR, DRIVE_SEG4_PTR, DRIVE_SEG4_LEN);
+}
+
+static void open_upload_all(void)
+{
+    for (iec_dev = 8; iec_dev != 11; ++iec_dev) {
+        open_cmd_channel(iec_dev);
+        upload_drive_image_current();
+    }
+}
+
+
+static void close_all(void)
+{
+	for (iec_dev = 8; iec_dev != 11; ++iec_dev) {
+		k_ckout(iec_dev);
+		k_bsout(CBM_CMD_U);
+		k_bsout('4');
+		k_bsout(13);
+		k_clrch();
+		k_close(iec_dev);
+		k_clrch();
+	}
+}
+
+/* ------------------------------------------------------------------------- */
+/*
+ * print_str() used to be implemented in C as:
+ *
+ * static void __fastcall__ print_str(const char* s)
+ * {
+ *     while (*s) {
+ *         k_bsout((u8)*s++);
+ *     }
+ * }
+ *
+ * The implementation now lives in vic20_c_kernal.s.
+ * In the unexpanded VIC-20 build this saves 28 bytes versus the C version.
+ */
+extern void __fastcall__ print_str(const char* s);
+extern void k_read_vic20_c_drv(void);
+
 /* Shared scratch values for compact decimal formatting.
  *
  * cc65 generates smaller code when the compact formatting primitives work on
@@ -107,10 +232,9 @@ static u16 rnd_seed;
 static u16 print_val;
 static u16 print_div;
 
-/* ------------------------------------------------------------------------- */
-/* Screen and compact decimal output. */
+/* Dedicated and minimized for total program size output functions */
 
-
+/* Using the macros made the code large */
 static void print_cr(void)
 {
     k_bsout(13);
@@ -255,114 +379,7 @@ static void print_result(void)
     print_cr();
 }
 
-/* ------------------------------------------------------------------------- */
-/* 32-bit arithmetic helper.
- *
- * The generic expression round(value * factor / den) is implemented in
- * src/vic20_c_math.s.  Keeping it in assembly preserves arbitrary TOTAL_WORK
- * values while avoiding the very large cc65 output generated for the same
- * 32-bit multiply/divide code in C.
- */
 
-/* ------------------------------------------------------------------------- */
-/* KERNAL IEC helpers.  Logical file number == device number. */
-
-static void send_u3_current(void)
-{
-    k_ckout(iec_dev);
-    k_bsout(CBM_CMD_U);
-    k_bsout('3');
-    k_bsout(13);
-    k_clrch();
-}
-
-static void send_mw_header_current(u16 addr, u8 count)
-{
-    k_ckout(iec_dev);
-    k_bsout(CBM_CMD_M);
-    k_bsout('-');
-    k_bsout(CBM_CMD_W);
-    k_bsout((u8)addr);
-    k_bsout((u8)(addr >> 8));
-    k_bsout(count);
-}
-
-static u8 __fastcall__ read_byte_addr_current(u16 addr)
-{
-    u8 v;
-
-    k_ckout(iec_dev);
-    k_bsout(CBM_CMD_M);
-    k_bsout('-');
-    k_bsout(CBM_CMD_R);
-    k_bsout((u8)addr);
-    k_bsout((u8)(addr >> 8));
-    k_bsout(13);
-    k_clrch();
-
-    k_chkin(iec_dev);
-    v = k_basin();
-    k_clrch();
-    return v;
-}
-
-/* Upload one non-contiguous 1541 RAM segment via M-W chunks. */
-static void upload_segment_current(u16 addr, const u8* src, u16 rem)
-{
-    u8 count;
-    u8 i;
-
-    while (rem) {
-        count = (rem > 32u) ? 32u : (u8)rem;
-        send_mw_header_current(addr, count);
-        for (i = 0; i != count; ++i) {
-            k_bsout(src[i]);
-        }
-        k_bsout(13);
-        k_clrch();
-
-        src += count;
-        addr += count;
-        rem -= count;
-    }
-}
-
-/* Upload the generated non-contiguous 1541 image.
- *
- * The external overlay file vic20_c_drv is loaded at $1E20 as a
- * sparse/contiguous view of the 1541 address space.  DRIVE_SEGx_PTR values
- * are therefore $1E20 + (DRIVE_SEGx_ADDR - DRIVE_LOAD), except for q_table.
- */
-static void upload_drive_image_current(void)
-{
-    upload_segment_current(DRIVE_SEG0_ADDR, DRIVE_SEG0_PTR, DRIVE_SEG0_LEN);
-    upload_segment_current(DRIVE_SEG1_ADDR, DRIVE_SEG1_PTR, DRIVE_SEG1_LEN);
-    upload_segment_current(DRIVE_SEG2_ADDR, DRIVE_SEG2_PTR, DRIVE_SEG2_LEN);
-    upload_segment_current(DRIVE_SEG3_ADDR, DRIVE_SEG3_PTR, DRIVE_SEG3_LEN);
-    upload_segment_current(DRIVE_SEG4_ADDR, DRIVE_SEG4_PTR, DRIVE_SEG4_LEN);
-}
-
-static void open_upload_all(void)
-{
-    for (iec_dev = 8; iec_dev != 11; ++iec_dev) {
-        open_cmd_channel(iec_dev);
-        upload_drive_image_current();
-    }
-}
-
-
-static void close_all(void)
-{
-	for (iec_dev = 8; iec_dev != 11; ++iec_dev) {
-		k_ckout(iec_dev);
-		k_bsout(CBM_CMD_U);
-		k_bsout('4');
-		k_bsout(13);
-		k_clrch();
-		k_close(iec_dev);
-		k_clrch();
-	}
-}
 
 /* ------------------------------------------------------------------------- */
 /* Mode setup, 1541 parameter block handling, and polling. */

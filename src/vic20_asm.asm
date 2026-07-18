@@ -143,8 +143,8 @@ mode_loop:
         jsr close_all
         lda #<done_msg
         ldy #>done_msg
-		
-		jmp print_str
+                
+        jmp print_str
         ; jsr print_str ; To print "ASM" in the title, I need this byte 
         ; rts           ; spared by the tail-call optimization...
 
@@ -217,7 +217,7 @@ open_cmd_channel:
         jsr SETNAM
         ; SETLFS file=curdev, device=curdev, secondary=15 command channel.
         lda curdev
-        tax			; X = A. Sets Z & N flags 
+        tax                     ; X = A. Sets Z & N flags 
         ldy #15
         jsr SETLFS
         jmp OPEN
@@ -402,7 +402,7 @@ load_mode:
         ; mode_idx is 0-based, but the printed mode number is M1..M5.
         ; 16-bit mode arrays are indexed by mode_idx*2.
         lda mode_idx
-        asl a				; Shift left by 1: A = 2*A
+        asl a                           ; Shift left by 1: A = 2*A
         tay                 ; Y = A 
         lda mode_nv,y
         sta nv_lo
@@ -461,28 +461,35 @@ print_k:
         lda #'-'
         jsr CHROUT
         jmp print_sp
-@num:   sta tmp_lo
-        lda #0
-        sta digit
-@tens:  lda tmp_lo
+@num:
+        jsr split_u8_decimal
+        pha                     ; preserve ones while printing optional tens
+        txa
+        beq @ones
+        jsr print_digit_a
+@ones:
+        pla
+        jsr print_digit_a
+        jmp print_sp
+
+split_u8_decimal:
+        ; Split unsigned A in 0..99 into X=tens and A=ones.
+        ldx #0
+@tens:
         cmp #10
-        bcc @ones
+        bcc @done
         sec
         sbc #10
-        sta tmp_lo
-        inc digit
-        jmp @tens
-@ones:  lda digit
-        beq @one_only
+        inx
+        bne @tens
+@done:
+        rts
+
+print_digit_a:
+        ; Print decimal digit 0..9 from A.
         clc
         adc #'0'
-        jsr CHROUT
-@one_only:
-        lda tmp_lo
-        clc
-        adc #'0'
-        jsr CHROUT
-        jmp print_sp
+        jmp CHROUT
 
 ; ============================================================
 ; Benchmark mode execution
@@ -1096,11 +1103,16 @@ print_pi:
         jmp print_digit_sub
 
 print_digit_sub:
-        ; Print one decimal digit by repeatedly subtracting divisor_hi:divisor_lo
-        ; from val_hi:val_lo.
-        lda #0
-        sta digit
-@loop:  jsr val_ge_divisor
+        ; Print one digit and leave val_hi:val_lo reduced by its place value.
+        jsr digit_sub
+        jmp print_digit_a
+
+digit_sub:
+        ; Return in A and X the quotient digit obtained by repeated subtraction
+        ; of divisor_hi:divisor_lo from val_hi:val_lo.
+        ldx #0
+@loop:
+        jsr val_ge_divisor
         bcc @done
         sec
         lda val_lo
@@ -1109,12 +1121,11 @@ print_digit_sub:
         lda val_hi
         sbc divisor_hi
         sta val_hi
-        inc digit
+        inx
         jmp @loop
-@done:  lda digit
-        clc
-        adc #'0'
-        jmp CHROUT
+@done:
+        txa
+        rts
 
 val_ge_divisor:
         ; Carry is set if val >= divisor, clear otherwise.
@@ -1186,9 +1197,11 @@ print_eff:
         jsr CHROUT
         lda val_lo
         jmp print_2digits_a
-@one:   lda #'1'
+@one:
+        lda #'1'
         jmp CHROUT
-@gt100: lda #0
+@gt100:
+        lda #0
         sta int_lo
         sta int_hi
 @e_loop:
@@ -1197,7 +1210,8 @@ print_eff:
         lda val_lo
         cmp #100
         bcc @e_done
-@e_sub: sec
+@e_sub:
+        sec
         lda val_lo
         sbc #100
         sta val_lo
@@ -1209,45 +1223,31 @@ print_eff:
         inc int_hi
         jmp @e_loop
 @e_done:
-        lda val_lo            ; save percent remainder before printing integer part
-        sta rem_eff
-        lda val_hi
-        sta rem_eff+1
+        ; The remainder is now 0..99, so one byte is sufficient.
+        lda val_lo
+        sta tmp_lo
         lda int_lo
         sta val_lo
         lda int_hi
         sta val_hi
         jsr print_dec_0_999
-        lda rem_eff
-        ora rem_eff+1
+        lda tmp_lo
         beq @ret
         lda #'.'
         jsr CHROUT
-        lda rem_eff
+        lda tmp_lo
         jsr print_2digits_a
-@ret:   rts
+@ret:
+        rts
 
 ; Print A as two decimal digits, leading zero.
 print_2digits_a:
-        sta tmp_lo
-        lda #0
-        sta digit
-@tens:  lda tmp_lo
-        cmp #10
-        bcc @ones
-        sec
-        sbc #10
-        sta tmp_lo
-        inc digit
-        jmp @tens
-@ones:  lda digit
-        clc
-        adc #'0'
-        jsr CHROUT
-        lda tmp_lo
-        clc
-        adc #'0'
-        jmp CHROUT
+        jsr split_u8_decimal
+        pha                     ; preserve ones while printing tens
+        txa
+        jsr print_digit_a
+        pla
+        jmp print_digit_a
 
 ; Print val_lo/hi as unsigned 0..999.
 print_dec_0_999:
@@ -1272,29 +1272,15 @@ print_dec_0_999:
         jmp print_digit_sub
 
 digit_sub_optional:
-        lda #0
-        sta digit
-@loop:  jsr val_ge_divisor
-        bcc @done
-        sec
-        lda val_lo
-        sbc divisor_lo
-        sta val_lo
-        lda val_hi
-        sbc divisor_hi
-        sta val_hi
-        inc digit
-        jmp @loop
-@done:  lda digit
+        jsr digit_sub
         ora printed
         beq @ret
         lda #1
         sta printed
-        lda digit
-        clc
-        adc #'0'
-        jsr CHROUT
-@ret:   rts
+        txa
+        jmp print_digit_a
+@ret:
+        rts
 
 ; ============================================================
 ; Read-only data
@@ -1398,7 +1384,6 @@ int_lo:       .res 1
 int_hi:       .res 1
 divisor_lo:   .res 1
 divisor_hi:   .res 1
-digit:        .res 1
 printed:      .res 1
 
 tmp_lo:       .res 1
@@ -1417,4 +1402,3 @@ factor_hi:    .res 1
 den_lo:       .res 1
 den_hi:       .res 1
 
-rem_eff:      .res 2
