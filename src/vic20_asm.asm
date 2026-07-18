@@ -965,20 +965,33 @@ div32_by_den:
 compute_eff100:
         ; Compute scaling efficiency in hundredths:
         ;   eff100 = round(t1 * 100 / (t * workers)).
-        ; If current time is zero, print efficiency as zero instead of dividing.
+        ;
+        ; t1 * 100 can exceed 16 bits once the reference time is above
+        ; 65.5 seconds, so keep the numerator in num3:num2:num1:num0.
         lda t10_lo
         ora t10_hi
-        bne @ok
+        beq @zero_now
+        lda workers
+        bne @nonzero
+
+@zero_now:
         lda #0
         sta eff_lo
         sta eff_hi
         rts
-@ok:    lda #0
+
+@nonzero:
+        ; den = t10 * workers.
+        ;
+        ; t10 is derived from a 16-bit elapsed-jiffy value. With the
+        ; current 50/60 Hz clocks and at most four workers, this product
+        ; fits in 16 bits.
+        lda #0
         sta den_lo
         sta den_hi
         ldx workers
-		; Multiply by workers using addition 
-@den:   clc
+@den:
+        clc
         lda den_lo
         adc t10_lo
         sta den_lo
@@ -988,72 +1001,44 @@ compute_eff100:
         dex
         bne @den
 
-		; Inefficient multiply by 100. But it is used only 
-		; several times at the end, after the time measurements,
-        ; and is rather compact. And we cannot spare a single byte...
-        lda #0
+        ; num = t1 * 100, using the existing 16x16 -> 32-bit multiplier.
+        lda t1_lo
+        sta val_lo
+        lda t1_hi
+        sta val_hi
+        lda #<100
         sta factor_lo
+        lda #>100              ; Just 0
         sta factor_hi
-        ldy #100
-@num:   clc
-        lda factor_lo
-        adc t1_lo
-        sta factor_lo
-        lda factor_hi
-        adc t1_hi
-        sta factor_hi
-        dey             ; --Y
-        bne @num
+        jsr mul16x16_to_num32
 
-        ; rounding: numerator += denominator / 2
+        ; Round to nearest integer: numerator += denominator / 2.
         lda den_hi
         lsr a
         sta tmp_hi
         lda den_lo
         ror a
         sta tmp_lo
+
         clc
-        lda factor_lo
+        lda num0
         adc tmp_lo
-        sta factor_lo
-        lda factor_hi
+        sta num0
+        lda num1
         adc tmp_hi
-        sta factor_hi
+        sta num1
+        lda num2
+        adc #0
+        sta num2
+        lda num3
+        adc #0
+        sta num3
 
-        jsr div16_by_den
-        lda factor_lo
+        jsr div32_by_den
+        lda num0
         sta eff_lo
-        lda factor_hi
+        lda num1
         sta eff_hi
-        rts
-
-; 16/16-bit unsigned division.
-; Used by compute_eff100 after building a 16-bit numerator and denominator.
-; Quotient is left in factor_hi:factor_lo.
-div16_by_den:
-        lda #0
-        sta rem_lo
-        sta rem_hi
-        ldx #16
-@loop:  asl factor_lo
-        rol factor_hi     ; Shift left through the C 
-        rol rem_lo
-        rol rem_hi
-        sec              ; set C = 1
-        lda rem_lo
-        sbc den_lo
-        sta tmp_lo
-        lda rem_hi
-        sbc den_hi
-        sta tmp_hi
-        bcc @skip
-        lda tmp_lo
-        sta rem_lo
-        lda tmp_hi
-        sta rem_hi
-        inc factor_lo
-@skip:  dex
-        bne @loop
         rts
 
 ; ============================================================
