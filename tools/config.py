@@ -42,7 +42,7 @@ C64 = {
 # VIC-20 + 3K expansion platform configuration.
 # The original C64 configuration remains unchanged.
 VIC_WEIGHT = 100
-JIFFIES_PER_SECOND = 50
+JIFFIES_PER_SECOND = 60
 
 # Deterministic seed for the local C64 worker.
 C64_SEED = (123, 45)

@@ -5,15 +5,18 @@ This project is a retrocomputing and computer architecture experiment: a Commodo
 
 > Maybe this project is the most perverted thing I have ever coded :=)
 
-Generative AI helped a lot – the project took a lot of time, and I would not have had enough time to complete it without LLMs, though I believe I "own every line of code". Though this text and most comments are written by me (and checked by Grammarly).
+Generative AI helped a lot – the project took a lot of time, and I would not have had enough time to complete it without LLMs, though I believe I "own every line of code". This text and most comments are written by me (and checked by Grammarly).
 
 - [C64/VIC-20 + 1541s Distributed Monte Carlo Benchmark](#c64vic-20--1541s-distributed-monte-carlo-benchmark)
   - [Idea](#idea)
   - [Results, TL;DR](#results-tldr)
-  - [VIC-20 follow-up experiments](#vic-20-follow-up-experiments)
+    - [Commodore 64](#commodore-64)
+      - [Commodore 64 with new asm workers](#commodore-64-with-new-asm-workers)
+    - [VIC-20 follow-up experiments](#vic-20-follow-up-experiments)
     - [VIC-20 + 3K results](#vic-20--3k-results)
     - [Unexpanded VIC-20 BASIC host results](#unexpanded-vic-20-basic-host-results)
     - [Unexpanded VIC-20 ASM host results](#unexpanded-vic-20-asm-host-results)
+    - [Unexpanded VIC-20  -- C host and VIC-20 worker](#unexpanded-vic-20-----c-host-and-vic-20-worker)
   - [General review](#general-review)
   - [Testing](#testing)
   - [Theory](#theory)
@@ -28,16 +31,17 @@ Generative AI helped a lot – the project took a lot of time, and I would not h
       - [Job queues](#job-queues)
     - [VIC-20 particulars](#vic-20-particulars)
       - [VIC-20 memory map](#vic-20-memory-map)
-    - [Pseudo command line](#pseudo-command-line)
     - [UI+ and UI- for the 1541 DOS](#ui-and-ui--for-the-1541-dos)
   - [Note about the first attempt](#note-about-the-first-attempt)
     - [First VIC-20 attempt](#first-vic-20-attempt)
   - [Final architecture](#final-architecture)
     - [Algorithm for the C64](#algorithm-for-the-c64)
     - [Algorithm for the VIC-20](#algorithm-for-the-vic-20)
-      - [VIC-20 + 3K](#vic-20--3k)
+      - [Pseudo command line](#pseudo-command-line)
+      - [VIC-20 + 3K BASIC host](#vic-20--3k-basic-host)
       - [VIC-20 unexpanded -- BASIC host](#vic-20-unexpanded----basic-host)
       - [VIC-20 unexpanded -- assembly host](#vic-20-unexpanded----assembly-host)
+      - [VIC-20 unexpanded -- C host and VIC-20 worker](#vic-20-unexpanded----c-host-and-vic-20-worker)
   - [Conclusions and future work](#conclusions-and-future-work)
   - [Sources](#sources)
 
@@ -49,7 +53,7 @@ Generative AI helped a lot – the project took a lot of time, and I would not h
 - So, the CPU of the C64 and 1541 have almost the same computational power. 
 - Additionally, 1541 is equipped with 2 KB RAM, which can be written, read by the C64, and executed by the 1541.  
 
-So I decided to attempt to make a computational cluster from my C64, 1541, 1541-II, and Pi1541 cycle-accurate 1541 floppy emulator. 
+So I decided to attempt to make a computational cluster from my C64, 1541, 1541-II, and Pi1541 cycle-accurate 1541 floppy emulator. Later, I extended this experiment to the VIC-20.
 
 > Note: Those computers are soooo slow that I am completely astonished and devastated -- how can developers make such great results with games and software for them! 
 
@@ -57,7 +61,16 @@ So I decided to attempt to make a computational cluster from my C64, 1541, 1541-
 
 ## Results, TL;DR 
 
+I succeeded!  Somehow it works! 
+
+### Commodore 64
+
 > **IMPORTANT NOTE!** Regarding the discrepancy between the wall-clock time and the reported time, especially for the computer-only runs, it was caused by using the wrong jiffy-rate conversion: the PAL value of 50 jiffies per second was used instead of the NTSC value of 60. Redoing all tests and recordings would be too time-consuming for this hobby project. The reported absolute times should therefore be corrected by a factor of $50/60$.  For example: $24 \cdot 50 / 60 = 20$. Relative values, such as speedups and scaling efficiencies, remain comparable. I'm deeply sorry! Added the recalculated (corrected) column to the tables.
+
+> **Note**: times are for previous, non-optimized assembly workers. Do not compare directly with the VIC-20 results -- they are on par for the same workers. See also ["Commodore 64 with new asm workers"](#commodore-64-with-new-asm-workers).
+
+> **Note**: it is better to reset disk drives after the experiment, e.g., by the command: ``OPEN 8,8,15,"UJ":CLOSE 15``. BASIC code does this, C and ASM code do not. Otherwise, the disk can behave erratically. 
+
 
 By the wall clock (it is important – see below):
 
@@ -91,7 +104,7 @@ Compared to reality, emulators are very precise.
 
 Results, reported by the C64 timer, are rather imprecise, though relevant. Only for the drives, the only error is substantial -- the relative error is large.
 
-Regarding the Pi, a value close to 3.147 is obtained most of the time. Though at least once I obtained the 2.8…
+Regarding the Pi, a value close to 3.147 is obtained most of the time. Though at least once I obtained the 2.8… Maybe, some memory corruption or whatever.
 
 Run on real hardware (better quality [here](https://github.com/indrekis/C64_HPC/blob/master/media/real_C64.mp4)): 
 
@@ -105,48 +118,66 @@ Run on Denise:
 
 https://github.com/user-attachments/assets/1468dc6a-c9f7-4963-8a32-2abcc066fb9c
 
+#### Commodore 64 with new asm workers
 
-## VIC-20 follow-up experiments
+But without statistics and in the emulator only -- emulation is rather precise. 
 
-The same idea was ported to the VIC-20 in three variants:
+**VICE Emulator** 
 
-1. VIC-20 + 3K RAM expansion + 1541s, with the VIC-20 itself also doing work.
+| Experiment         | Reported, s  | Efficiency | Wallclock, s | Efficiency |
+| :----------------- | :----------- | ---------- | :----------- | ---------- |
+| C64 only           | 14.58        |            | 13           |            |
+| C64 + Drv 8        | 10.04        | 0.73       | 10           | 0.65       |
+| C64 + Drv 8, 9     | 6.92         | 0.70       | 7            | 0.62       |
+| C64 + Drv 8, 9, 10 | 6.18         | 0.59       | 7            | 0.46       |
+| Drv 8, 9, 10       | 4.90         | 0.99       | 8            | 0.54       |
+
+Results are comparable to the VIC-20, though pure BASIC is slower -- it performs much more screen I/O.
+ 
+### VIC-20 follow-up experiments
+
+The same idea was ported to the VIC-20 in several variants:
+
+1. VIC-20 + 3K RAM expansion + 1541s, with the VIC-20 itself also doing work, BASIC host, assembly workers -- the same configuration as for the C64, though much more constrained memory even with the extender.
 2. Unexpanded VIC-20 + 1541s, drive-only BASIC host.
-3. Unexpanded VIC-20 + 1541s, assembly host with local VIC-20 worker.
+3. Unexpanded VIC-20 + 1541s, assembly host with local VIC-20 assembly worker.
+4. Unexpanded VIC-20 + 1541s, C host with local VIC-20 C worker, 1541 workers are still in assembly.
+
+For each unexpanded VIC-20 case, a +3k-compatible .prg file is created, just for convenience -- main difference is the loading address.
 
 Tests were less rigorous than for the C64; reproducibility was tested only basically, though across 3-5 runs, variations were minimal. Random errors in the tables below are less than 1s.
 
 | ![](media/VIC20/VIC20_3K_screen.jpg) |
 | ------------------------------------ |
-| The VIC-20 screen is much smaller than that of the C64, so, despite my attempts, it is much more cryptic. So here are some explanations. The first line describes the run, including [UI mode](#ui-and-ui--for-the-1541-dos). The next two lines are the legend: K -- work is printed as kilo-iterations, 60 means 60'000 iterations; V -- VIC20 work part, 8 -- drive 8 work part, same for the 9 and 10, ``--`` means none. Next line for each run: Pi value obtained, time of calculations and efficiency, calculated by the T/Tn/N. The screen is from the  VIC-20 + 3K extender running on the VICE emulator. | 
+| The VIC-20 screen is much smaller than that of the C64, so, despite my attempts, it is much more cryptic. (Though it is more convenient once I get used to it.) So here are some explanations. The first line describes the run, including [UI mode](#ui-and-ui--for-the-1541-dos). The next two lines are the legend: K -- work is printed as kilo-iterations, 60 means 60'000 iterations; V -- VIC20 work part, 8 -- drive 8 work part, same for the 9 and 10, ``--`` means none. Next line for each run: Pi value obtained, time of calculations and efficiency, calculated by the T/Tn/N. The screen is from the  VIC-20 + 3K extender running on the VICE emulator. | 
 
 ### VIC-20 + 3K results
 
 **VICE Emulator** 
 
-| Experiment           | Reported, s | Recalc., s| Efficiency | Wallclock, s | Efficiency |
-| :------------------- | :---------- | --------- | ---------- | :----------- | ---------- |
-| VIC20 only           | 24.1        | 20.08     |            | 20           |            |
-| VIC20 + Drv 8        | 16.6        | 13.83     | 0.73       | 15           | 0.67       |
-| VIC20 + Drv 8, 9     | 11.7        | 9.75      | 0.69       | 11           | 0.44       |
-| VIC20 + Drv 8, 9, 10 | 9.5         | 7.92      | 0.63       | 9            | 0.45       |
-| Drv 8, 9, 10         | 11.6        | 9.67      | 0.69       | 12           | 0.55       |
+| Experiment           | Reported, s | Efficiency | Wallclock, s | Efficiency |
+| :------------------- | :---------- | ---------- | :----------- | ---------- |
+| VIC20 only           | 10.9        |            | 11           |            |
+| VIC20 + Drv 8        | 7.9         | 0.69       | 9            | 0.61       |
+| VIC20 + Drv 8, 9     | 5.7         | 0.64       | 6            | 0.61       |
+| VIC20 + Drv 8, 9, 10 | 4.7         | 0.58       | 6            | 0.46       |
+| Drv 8, 9, 10         | 5.3         | 0.69       | 7            | 0.52       |
 
 **Real hardware**
 
-| Experiment           | Reported, s | Recalc., s| Efficiency | Wallclock, s | Efficiency |
-| :-----------------   | :---------- | --------- | ---------- | :----------- | ---------- |
-| VIC20 only           | 24.1        | 20.08     |            | 21           |            |
-| VIC20 + Drv 8        | 16.8        | 14.00     | 0.72       | 15           | 0.70       |
-| VIC20 + Drv 8, 9     | 11.6        | 9.67      | 0.69       | 11           | 0.64       |
-| VIC20 + Drv 8, 9, 10 | 9.5         | 7.92      | 0.63       | 9            | 0.58       |
-| Drv 8, 9, 10         | 10.9        | 9.08      | 0.73       | 11           | 0.64       |
+| Experiment           | Reported, s | Efficiency | Wallclock, s | Efficiency |
+| :-----------------   | :---------- | ---------- | :----------- | ---------- |
+| VIC20 only           | 10.9        |            | 11           |            |
+| VIC20 + Drv 8        | 7.7         | 0.71       | 9            | 0.61       |
+| VIC20 + Drv 8, 9     | 5.6         | 0.65       | 6            | 0.61       |
+| VIC20 + Drv 8, 9, 10 | 5.0         | 0.55       | 6            | 0.46       |
+| Drv 8, 9, 10         | 5.9         | 0.64       | 8            | 0.46       |
 
 As can be seen, the reported results are highly consistent between hardware and emulation. Wall-clock results are consistent, too, within higher error margins. 
 
-Scalability is similar to that of the C64 within error margins. Wallclock results for the VIC-20 are consistently smaller; it looks 10\% faster than the C64. Both are NTSC. Faster bus communication for the VIC-20 should not be important here. Other hypothesis -- VIC-II is stealing the bus on the C64.
+Scalability is similar to that of the C64 within error margins. Wallclock results for the VIC-20 are consistently smaller; it looks 10\% faster than the C64. Both are NTSC. Faster bus communication for the VIC-20 should not be important here. Another hypothesis -- VIC-II is stealing the bus on the C64.
 
-Run on real hardware (better quality here):
+Run on real hardware:
 
 Run on VICE:
 
@@ -155,22 +186,24 @@ Run on VICE:
 
 **VICE Emulator** 
 
-| Experiment   | Reported, s | Recalc., s| Efficiency | Wallclock, s | Efficiency |
-| :----------- | :---------- | --------- | ---------- | :----------- | ---------- |
-| Drv 8        | 38.4        | 32        |            | 34           |            |
-| Drv 8, 9     | 19.2        | 16        | 1.00       | 19           | 0.89       |
-| Drv 8, 9, 10 | 11.9        | 9.92      | 1.08       | 12           | 0.94       |
+| Experiment   | Reported, s | Efficiency | Wallclock, s | Efficiency |
+| :----------- | :---------- | ---------- | :----------- | ---------- |
+| Drv 8        | 17.3        |            | 19           |            |
+| Drv 8, 9     |  8.2        | 1.05       | 10           | 0.95       |
+| Drv 8, 9, 10 |  5.8        | 1.00       |  8           | 0.79       |
 
 **Real hardware**
 
-| Experiment   | Reported, s | Recalc., s| Efficiency | Wallclock, s | Efficiency |
-| :----------- | :---------- | --------- | ---------- | :----------- | ---------- |
-| Drv 8        | 38.3        | 31.92     |            | 34           |            |
-| Drv 8, 9     | 17.7        | 14.75     | 1.08       | 18           | 0.94       |
-| Drv 8, 9, 10 | 12.6        | 10.50     | 1.01       | 13           | 0.87       |
+| Experiment   | Reported, s | Efficiency | Wallclock, s | Efficiency |
+| :----------- | :---------- | ---------- | :----------- | ---------- |
+| Drv 8        | 17.3        |            | 19           |            |
+| Drv 8, 9     | 8.3         | 1.04       | 10           | 0.95       |
+| Drv 8, 9, 10 | 6.1         | 0.95       |  8           | 0.79       |
+
+As one can see, scaling is almost linear here when only the 1541s are calculating.
 
 
-Run on real hardware (better quality here; first attempt always gives an error, as seen on the video, I do not have any idea why):
+Run on real hardware:
 
 
 Run on VICE:
@@ -181,30 +214,59 @@ Run on VICE:
 
 **VICE Emulator** 
 
-| Experiment           | Reported, s | Recalc., s| Efficiency | Wallclock, s | Efficiency |
-| :------------------- | :---------- | --------- | ---------- | :----------- | ---------- |
-| VIC20 only           | 23.3        | 19.42     |            | 19           |            |
-| VIC20 + Drv 8        | 16.7        | 13.92     | 0.70       | 14           | 0.68       |
-| VIC20 + Drv 8, 9     | 11.7        | 9.75      | 0.66       | 10           | 0.63       |
-| VIC20 + Drv 8, 9, 10 | 8.6         | 7.17      | 0.68       | 9            | 0.53       |
-| Drv 8, 9, 10         | 11.4        | 9.5       | 0.68       | 12           | 0.53       |
+| Experiment           | Reported, s | Efficiency | Wallclock, s | Efficiency |
+| :------------------- | :---------- | ---------- | :----------- | ---------- |
+| VIC20 only           | 10.8        |            | 11           |            |
+| VIC20 + Drv 8        | 7.4         | 0.73       | 8            | 0.69       |
+| VIC20 + Drv 8, 9     | 5.2         | 0.69       | 5            | 0.73       |
+| VIC20 + Drv 8, 9, 10 | 4.0         | 0.68       | 5            | 0.55       |
+| Drv 8, 9, 10         | 4.7         | 0.77       | 7            | 0.52       |
 
 **Real hardware**
 
-Absent yet
-| Experiment           | Reported, s | Recalc., s| Efficiency | Wallclock, s | Efficiency |
-| :-----------------   | :---------- | --------- | ---------- | :----------- | ---------- |
-| VIC20 only           | 24.1        | 20.08     |            | 21           |            |
-| VIC20 + Drv 8        | 16.8        | 14.00     | 0.72       | 15           | 0.70       |
-| VIC20 + Drv 8, 9     | 11.6        | 9.67      | 0.69       | 11           | 0.64       |
-| VIC20 + Drv 8, 9, 10 | 9.5         | 7.92      | 0.63       | 9            | 0.58       |
-| Drv 8, 9, 10         | 10.9        | 9.08      | 0.73       | 11           | 0.64       |
+| Experiment           | Reported, s | Efficiency | Wallclock, s | Efficiency |
+| :-----------------   | :---------- | ---------- | :----------- | ---------- |
+| VIC20 only           | 10.8        |            | 10           |            |
+| VIC20 + Drv 8        | 7.4         | 0.73       | 8            | 0.63       |
+| VIC20 + Drv 8, 9     | 5.0         | 0.72       | 5            | 0.67       |
+| VIC20 + Drv 8, 9, 10 | 4.0         | 0.68       | 5            | 0.50       |
+| Drv 8, 9, 10         | 4.7         | 0.77       | 7            | 0.48       |
 
 
 Run on real hardware:
 
+Run on VICE:
+
+### Unexpanded VIC-20  -- C host and VIC-20 worker
+
+**VICE Emulator** 
+
+| Experiment           | Reported, s | Efficiency | Wallclock, s | Efficiency |
+| :------------------- | :---------- | ---------- | :----------- | ---------- |
+| VIC20 only           | 60.7        |            | 60           |            |
+| VIC20 + Drv 8        | 30.4        | 1.00       | 31           | 0.97       |
+| VIC20 + Drv 8, 9     | 20.5        | 0.99       | 20           | 1.00       |
+| VIC20 + Drv 8, 9, 10 | 15.6        | 0.97       | 16           | 0.94       |
+| Drv 8, 9, 10         | 4.5         | 4.50       | 7            | 2.86       |
+
+**Real hardware**
+
+| Experiment           | Reported, s | Efficiency | Wallclock, s | Efficiency |
+| :-----------------   | :---------- | ---------- | :----------- | ---------- |
+| VIC20 only           | 60.7        |            | 60           |            |
+| VIC20 + Drv 8        | 30.4        | 1          | 31           | 0.97       |
+| VIC20 + Drv 8, 9     | 20.5        | 0.99       | 20           | 1.00       |
+| VIC20 + Drv 8, 9, 10 | 15.6        | 0.97       | 16           | 0.94       |
+| Drv 8, 9, 10         | 4.9         | 4.13       |  7           | 2.86       |
+
+As one can see, C is rather slow, so calculations are rather unbalanced and would benefit from other partitioning of the work, though the project took too long, so I left it as it is. 
+
+> Note: as a result, 4.13 or 2.86 here is just an artifact, not a superlinear acceleration. 
+
+Run on real hardware:
 
 Run on VICE:
+
 
 
 
@@ -348,7 +410,7 @@ Where:
 
 > Note: INPUT does not work from the interactive mode -- only from the program mode. 
 
-> Note 2: Spaces and comments use the precise memory, so in practice, they were sometimes considered harmful (keywords, such as INPUT, are saved in tokenized form, taking mostly 1 byte plus their arguments). Though for clarity and without having strong limits on memory, I use them extensively. 
+> Note 2: Spaces and comments use the precious memory, so in practice, they were sometimes considered harmful (keywords, such as INPUT, are saved in tokenized form, taking mostly 1 byte plus their arguments). Though for clarity and without having strong limits on memory, I use them extensively. 
 >
 > Though not for the VIC-20 -- memory constraints are too tight here.
 
@@ -429,9 +491,9 @@ As one can see from the available operation codes, this mechanism is extremely f
 ### VIC-20 particulars 
 
 
-The VIC-20 is much more constrained computational environment. CPU is almost the same -- MOS 6502, at 1.023 MHz (for NTSC, PAL frequency is 1.108 MHz, more then for the C64). But the memory is much more limited: 5Kb RAM, of which only 3.5 Kb are free. Additionally, memory map is less flexible. 
+The VIC-20 is much more constrained computational environment. CPU is almost the same -- MOS 6502, at 1.023 MHz (for NTSC, PAL frequency is 1.108 MHz, more than for the C64). But the memory is much more limited: 5Kb RAM, of which only 3.5 Kb are free. Additionally, memory map is less flexible. 
 
-Additionally, screen is almost twice as small then in C64 -- 22 cols and 23 rows vs 40 x 25 for the C64. 
+Additionally, the screen is almost twice as small as in the C64 -- 22 cols and 23 rows vs 40 x 25 for the C64. 
 
 > Note: as always, the lower are the resources, the harder is to separate abstractions. So here I describe both ideas behind the tricks used and the tricks itself.
 
@@ -454,121 +516,21 @@ Additionally, screen is almost twice as small then in C64 -- 22 cols and 23 rows
 | `$C000-$DFFF` | BASIC ROM | Built-in BASIC interpreter ROM. |
 | `$E000-$FFFF` | KERNAL ROM | Built-in KERNAL ROM and vectors. |
 
-At the ``$37-38`` (55-56 dec) there is end of BASIC variables and at the ``$2D-2E`` (45-45 dec) -- VARTAB, pointer to the start of the BASIC variables.
+At the ``$37-38`` (55-56 dec) there is end of BASIC variables and at the ``$2D-2E`` (45-46 dec) -- VARTAB, pointer to the start of the BASIC variables.
 
-For the details, see also: [Changing Screen Dimensions on the Commodore VIC-20](https://techtinkering.com/articles/changing-screen-dimensions-on-the-commodore-vic-20/)
+For the details, see also: [Changing Screen Dimensions on the Commodore VIC-20](https://techtinkering.com/articles/changing-screen-dimensions-on-the-commodore-vic-20/).
 
-For VIC-20 + 3K configuration, we use the following memory layout:
-
-| Address range | Description |
-|---:|---|
-| ``$0401-$????`` | Tokenized VIC-20 BASIC host/scheduler |
-| ``$????-$15FF`` | BASIC dynamic area: scalar variables, arrays, strings, temporary string data |
-| ``$1600-$17FF`` | VIC-20 local worker: code, parameters, result fields, and Q table |
-| ``$1800-...``   | Embedded compact 1541 drive image, uploaded to each drive via M-W |
-| ``$1D00-$1DFF`` | Spare / diagnostics / safety margin |
-| ``$1E00-$1FFF`` |  Screen RAM |
-
-Where the ??? is calculated by the build script, to put variables just above the tokenized BASIC codes. BASIC template contains placeholder for this:
-
-```basic
-100 poke45,000:poke46,000:poke55,0:poke56,22:clr
-```
-
-> Note: 22 is ``$16`` hex, so ``poke55,0:poke56,22`` sets variables limit to ``$1600``.
-
-> Note 2: Looking ahead, both local and 1541 workers are added to the tokenized BASIC .prg-file as a blobs, not as DATA-blocks, located in the file so to be placed at expected locations in the RAM while loading. 
-
-Additionally, fre(0) call is extensively used -- it has an side-effect of garbage collection, maximizing available memory. And I was forced  to remove many intermediate variables to squeeze code into available space. 
-
-For the unexpanded VIC-20 with BASIC host, there are not enough RAM for the VIC-20 worker, so we use only 1541 for calculations. Corresponding memory map is:
-
-| Address range | Description |
-|---:|---|
-| ``$1001-$????`` | Tokenized BASIC host/scheduler |
-| ``$????-$DDDD`` | BASIC variables, arrays, and string space |
-| ``$DDDD-$1DFF`` | Embedded compact 1541 drive image, uploaded to drives via `M-W` |
-| ``$1E00-$1FFF`` | Screen RAM |
-
-where ``$DDDD`` is computed by the following formula: 
-
-``drive_image_address = $1E00 - compact_drive_image_length``
-
-Corresponding BASIC placeholder (25 dec is a ``$19`` hex and 236 dec is ``$EC``: ``$19EC``):
-
-```basic
-100 poke45,000:poke46,000:poke55,236:poke56,25:clr
-```
-
-For the assembly host for the unexpanded VIC-20, memory map is the following:
-
-| Address range | Description |
-|---:|---|
-| ``$0000-$03FF`` | VIC-20 internal low RAM: zero page, stack, KERNAL/BASIC workspace. The assembly code uses zero-page pointer ``$FB/$FC``. |
-| ``$1001-$100C`` | Tiny BASIC loader stub: ``10 SYS 4112`` -- ``$1010``. |
-| ``$100D-$100F`` | Padding. |
-| ``$1010-...`` | Main 6502 assembly host/scheduler code. |
-| ``...`` | KERNAL IEC routines, mode scheduler, local VIC Monte Carlo worker, timing/arithmetic/printing code. |
-| `...` | Read-only data: strings, generated mode tables, and embedded compact 1541 drive image. |
-| `...-$1DFF` | BSS/runtime variables used by the assembly host. Must still fit below screen memory. |
-| `$1E00-$1FFF` | Default VIC-20 screen RAM. |
-
-Current details can be seen in the ``vic20_asm.map`` file.
-
-> Note: ``$00FB-$00FE`` interval contains available locations in zero page.
-
-### Pseudo command line 
-
-To provide mode selection interesting trick was used.
-
-For the VIC-20 + 3K, BASIC starts from the: 
-
-```basic
-1 poke828,86:poke829,50:poke830,0:goto 100
-21 poke828,86:poke829,50:poke830,1:goto 100
-22 poke828,86:poke829,50:poke830,2:goto 100
-23 poke828,86:poke829,50:poke830,3:goto 100
-24 poke828,86:poke829,50:poke830,4:goto 100
-25 poke828,86:poke829,50:poke830,5:goto 100
-30 poke828,86:poke829,50:poke830,255:goto 100
-```
-
-Addresses 828, 829, 830: ``$033C-$033E``, are the parts of the cassette buffer. We use them as an arguments block: 
-
-- ``$033C`` = 86   ASCII "V",
-- ``$033D`` = 50   ASCII "2",
-- ``$033E`` = mode number.
-
-> Note: 86,50 is just a signature to check if we have arguments.
-
-> Note 2: this trick is useful, because CLR from the line 100 erases BASIC variables. 
-
-So one can: 
-
-| Command | Result |
-| :-------|--------|
-| RUN     | Start from the beginning, run all tests |
-| RUN 21  | mode 1: VIC-20 only |
-| RUN 22  | mode 2: VIC-20 + Drv.8 | 
-| RUN 23  | mode 3: VIC-20 + Drv.8 + Drv.9 | 
-| RUN 24  | mode 4: VIC-20 + Drv.8 + Drv.9 + Drv.10  |
-| RUN 25  | mode 5: Drv.8 + Drv.9 + Drv.10 |
-| RUN 30  | interactive menu |
-
-For the unexpanded BASIC host, we support only 4 options:
-
-| Command | Result |
-| :-------|--------|
-| RUN     | Start from the beginning, run all tests |
-| RUN 21  | mode 2: Drv.8 | 
-| RUN 22  | mode 3: Drv.8 + Drv.9 | 
-| RUN 23  | mode 4: Drv.8 + Drv.9 + Drv.10  |
-
-The unexpanded assembly variant always runs the full five-mode benchmark sequence. Internally, the modes are still present: the host keeps a `mode_idx`, loads the corresponding generated mode table, prints the mode line, runs it, and repeats until all five modes have completed.
 
 ### UI+ and UI- for the 1541 DOS 
 
-For the compatibility with the C64, default 1541 communication mode is slower that it could be. The 1541 with default DOS can communicate by the IEC bus up to 25% faster. VIC-20 can work in this faster mode. To turn it on, one can send a command ``UI-`` and ``UI+`` to turn in off -- return to the compatible mode. 
+For the compatibility with the C64, default 1541 communication mode is slower that it could be. The 1541 with default DOS can communicate by the IEC bus up to 25% faster. VIC-20 can work in this faster mode. To turn it on, one can send a command ``UI-`` and ``UI+`` to turn it off -- return to the compatible mode. 
+
+Option is set by using the filename "UI-" while opening the command channel, kind of: 
+
+```basic
+OPEN 8,8,15,"UI-":CLOSE 8
+```
+
 
 > Note: I did not test thoroughly, but basically did not notice a difference between those modes.
 
@@ -586,7 +548,7 @@ If I put ``RTS`` command in the calculation code, C64 can continue its work, but
 
 For two weeks of evenings, I tortured the AI and read the literature on the 1541 hardware and DOS to find a solution. All the AIs tried to persuade me that it is impossible. Only when I read about the work queue and U3 and friends user commands, AI believed me and helped to create a working code at last. 
 
-**Takeout**: computers lied even decades before the LLM hallucinations -- it was unexpected to see correct results on the screen, while real results were totally wrong, as in a badly performed students' lab.
+**Takeaway**: computers lied even decades before the LLM hallucinations -- it was unexpected to see correct results on the screen, while real results were totally wrong, as in a badly performed students' lab.
 
 ### First VIC-20 attempt 
 
@@ -613,7 +575,7 @@ C64 uploads the code binary blob to 1541, starting from ``$0300``, including:
 - C64 uploads the precomputed TABLE to ``$0400``.
 - C64 uploads computation input data to ``$05D0`` -- different for each drive.
 - C64 sends the U3 command using the ``PRINT#D,"U3"`` command for each drive.
-  - ``U3`` calls ``start_worker``, which puts job A (``$D0`` -- ``JUMP``) into the у job queue and returns. Then C64 can continue.
+  - ``U3`` calls ``start_worker``, which puts job A (``$D0`` -- ``JUMP``) into the y job queue and returns. Then C64 can continue.
   - At the end of the job A, it puts job B into the queue (and vice versa).
   - As a result, the drive, scanning the job table, calls job A and job B in turn, performing the calculations. 
    - > Note 1: Two jobs switching from one to another are used to avoid race conditions with the error code in the job slot. I’m not sure if it is the optimal solution, but it works. 
@@ -638,7 +600,7 @@ A:
   ...
 ```
 
-Every 256 chunks, the LED state is changed. This is done by directly manipulating the VIA port register (which corresponds to the second VIA 6522  -- Versatile Interface Adapter, I/O port controller, of the 1541, responsible for the):
+Every 256 iterations, the LED state is toggled. This is done by directly manipulating the VIA port register (which corresponds to the second VIA 6522  -- Versatile Interface Adapter, I/O port controller, of the 1541, responsible for controlling the disk mechanism):
 
 ```text
 VIA PRB  = $1C00  -- Port Register B / DSKCNT
@@ -695,7 +657,7 @@ The status byte is used as follows:
 The C64 polls the drive status byte at `$05D3`. 
 
 
-An important constant here is the DRIVE_CHUNK — the number of Monte-Carlo iterations for one job quantum. The more the better, but it looks like value 32 is optimal: for 16 calculations are too slow, and for 64 drives calculate almost sequentially. Looks like long jobs somehow starve the drives of returning control to the C64 (e.g., by not freeing the bus). Though here it is just a hypothesis.
+An important constant here is the DRIVE_CHUNK — the number of Monte-Carlo iterations for one job quantum. The more the better, but it looks like value 58 is optimal. For the previous version, 32 was optimal: for 16 calculations were too slow, and for 64 drives calculate almost sequentially. Currently, 32 is too slow, and 62 looks dangerous. Looks like long jobs somehow starve the drives of returning control to the C64 (e.g., by not freeing the bus). Though here it is just a hypothesis.
 
 > Note: In the emulators, for the current code, LEDs are blinking continuously since the moment the code started. On the real C64, they light up but don't blink until the C64 has finished its calculations. I am not sure what this means, because the timings are fairly consistent across the emulators and hardware. 
 
@@ -725,10 +687,11 @@ seq3vis.bas              vibecoded Monte Carlo demo
 - C64 Studio was used as an auxiliary but useful tool -- it allows one to check the generated BASIC code and run it in VICE with a single shortcut. 
 
 
-The **Makefile** is used to generate the final PRG and C64 disk image. Targets: 
+The **Makefile** is used to generate the final PRG and C64 disk image. Important targets: 
 
-- make     --    build benchmark.prg
-- make disk  --   build benchmark.d64
+- make           --    build all targets 
+- make c64-disk  --   build c64_bench.d64 disk
+- make vic20-all-disk -- build disk with all VIC-20 tests
 - make clean  -- remove generated files and build output
 
 
@@ -755,44 +718,61 @@ Among other things, **tools/config.py** contains TOTAL_WORK (total Monte-Carlo i
 
 Final files, depending on requirement, are:
 
-- build/benchmark.bas
-- build/benchmark.prg
-- build/benchmark.d64
+- build/C64BENCH.bas
+- build/C64BENCH.prg
+- build/C64BENCH.d64
 
 > Note: not all values can be freely changed in configurations (some are partially hardcoded, directly or semantically, see sources) -- I have not addressed this deficiency yet.
 
 To run the code, use: 
 
 ```basic
-LOAD"BENCHMARK",8
+LOAD"C64BENCH",8
 RUN
 ```
 
 ### Algorithm for the VIC-20
 
-Toolchain used is the same as for the C64. Makefile is common. 
+Toolchain used is the same as for the C64. Makefile is common.
 
 Project code structure -- VIC-20 part:
 
 ```text
 src/
-  drive_worker.asm          shared 6502 worker code executed inside each 1541
-  vic20_benchmark.bas.in    BASIC V2 template for the VIC-20 + 3K benchmark host
-  vic20_worker.asm          6502 local worker code executed on the VIC-20 + 3K
-  vic20u_benchmark.bas.in   BASIC V2 template for the unexpanded VIC-20 drive-only host
-  vic20_asm.asm            one-file unexpanded VIC-20 assembly benchmark with BASIC SYS stub
-  generated_vic20.inc       generated ca65 constants for the VIC-20 + 3K worker
-  generated_vic20.cfg       generated ld65 memory map for the VIC-20 + 3K worker
-  generated_vic20_asm.inc  generated constants and mode tables for the unexpanded VIC-20 asm host
-  generated_vic20_asm.cfg  generated ld65 memory map for the unexpanded VIC-20 asm host
+  drive_worker.asm           shared 6502 worker code executed inside each 1541
+
+  vic20_benchmark.bas.in     BASIC V2 template for the VIC-20 +3K host with local and drive workers
+  vic20u_benchmark.bas.in    BASIC V2 template for the unexpanded VIC-20 drive-only host
+  vic20_worker.asm           standalone 6502 local worker used by the VIC-20 +3K BASIC host
+
+  vic20_asm.asm              shared one-file ca65 host for the unexpanded and +3K 
+                             assembly variants
+  vic20_asm_u.cfg            ld65 memory map for the unexpanded VIC-20 assembly host
+  vic20_asm_3k.cfg           ld65 memory map for the VIC-20 +3K assembly host
+
+  vic20_c.c                  shared cc65 C host and scheduler for the unexpanded and +3K variants
+  vic20_c_startup.s          minimal cc65 startup code and BASIC SYS stubs for both C variants
+  vic20_c_kernal.s           compact cc65 KERNAL I/O wrappers and screen-overlay loader
+  vic20_c_math.s             optimized assembly multiply/divide helper used by the cc65 host
+  vic20_c_u.cfg              ld65 memory map for the unexpanded VIC-20 C host
+  vic20_c_3k.cfg             ld65 memory map for the VIC-20 +3K C host
+
+  generated_vic20.inc        generated ca65 constants for the VIC-20 +3K BASIC local worker
+  generated_vic20.cfg        generated ld65 memory map for the VIC-20 +3K BASIC local worker
+  generated_vic20_asm.inc    generated constants, seeds, and mode tables for both assembly hosts
+  generated_vic20_c.h        generated constants, mode tables, and drive-segment metadata for C hosts
+  generated_vic20_c_segments.s   generated ca65 source containing the C host's resident Q lookup table
 
 tools/
-  config.py                 shared benchmark, memory-layout, timing, and seed configuration
-  make_includes.py          generates ca65 includes and ld65 configs
-  make_vic20_basic.py       builds the VIC-20 + 3K BASIC host and appends worker/drive blobs
-  make_vic20u_basic.py      builds the unexpanded VIC-20 BASIC drive-only host
-  make_vic20_asm_inc.py    generates constants and mode tables for the unexpanded VIC-20 asm variant
-  report_vic20_asm_size.py reports whether the unexpanded VIC-20 asm PRG still fits below screen RAM
+  config.py                  shared benchmark, memory-layout, timing, weight, and seed configuration
+  make_drive_image.py        builds the VIC-20 1541 image and inserts the generated Q lookup table
+  make_vic20_includes.py     generates constants and the linker map for the +3K BASIC local worker
+  make_vic20_basic.py        generates and packages the VIC-20 +3K BASIC host with worker/drive blobs
+  make_vic20u_basic.py       generates and packages the unexpanded BASIC drive-only host
+  make_vic20_asm_inc.py      generates assembly constants/mode tables and a compact embedded drive image
+  make_vic20_c_inc.py        generates C metadata, the Q-table source, and the screen-RAM drive overlay
+  report_vic20_asm_size.py   verifies assembly PRG layout and available space below screen RAM
+  report_vic20_c_size.py     verifies C PRG load address and available space below screen RAM
 ```
 
 Comments are absent in the BAS files, because of the tight memory constraints, so some details are here. 
@@ -801,9 +781,62 @@ Details regarding the mode selection and the memory maps are described in the [V
 
 Because of the small screen, work is printed as thousands: 60 means 60K -- 60000 iterations, and so on.
 
-#### VIC-20 + 3K 
 
-**TODO: SCreen**
+#### Pseudo command line 
+
+To provide mode selection interesting trick was used.
+
+For the VIC-20 + 3K, BASIC starts from the: 
+
+```basic
+1 poke828,86:poke829,50:poke830,0:goto 100
+21 poke828,86:poke829,50:poke830,1:goto 100
+22 poke828,86:poke829,50:poke830,2:goto 100
+23 poke828,86:poke829,50:poke830,3:goto 100
+24 poke828,86:poke829,50:poke830,4:goto 100
+25 poke828,86:poke829,50:poke830,5:goto 100
+30 poke828,86:poke829,50:poke830,255:goto 100
+```
+
+Addresses 828, 829, 830: ``$033C-$033E``, are the parts of the cassette buffer. We use them as an arguments block: 
+
+- ``$033C`` = 86   ASCII "V",
+- ``$033D`` = 50   ASCII "2",
+- ``$033E`` = mode number.
+
+> Note: 86,50 is just a signature to check if we have arguments.
+
+> Note 2: this trick is useful, because CLR from the line 100 erases BASIC variables. 
+
+So one can: 
+
+| Command | Result |
+| :-------|--------|
+| RUN     | Start from the beginning, run all tests |
+| RUN 21  | mode 1: VIC-20 only |
+| RUN 22  | mode 2: VIC-20 + Drv.8 | 
+| RUN 23  | mode 3: VIC-20 + Drv.8 + Drv.9 | 
+| RUN 24  | mode 4: VIC-20 + Drv.8 + Drv.9 + Drv.10  |
+| RUN 25  | mode 5: Drv.8 + Drv.9 + Drv.10 |
+| RUN 30  | interactive menu |
+
+For the unexpanded BASIC host, we support only 4 options:
+
+| Command | Result |
+| :-------|--------|
+| RUN     | Start from the beginning, run all tests |
+| RUN 21  | mode 1, corresponds to Drv.8 only | 
+| RUN 22  | mode 2: Drv.8 + Drv.9 | 
+| RUN 23  | mode 3: Drv.8 + Drv.9 + Drv.10  |
+
+The unexpanded assembly variant always runs the full five-mode benchmark sequence. Internally, the modes are still present: the host keeps a `mode_idx`, loads the corresponding generated mode table, prints the mode line, runs it, and repeats until all five modes have completed.
+
+#### VIC-20 + 3K BASIC host
+
+| ![](media/VIC20/01_VIC20_3K_screen.jpg) | 
+| :---: |
+| VICE screenshot of the +3k BASIC variant. |
+
 
 Lines 110–140 define the BASIC runtime constants used by the VIC-20 + 3K host and set by the corresponding Python script:
 
@@ -839,6 +872,28 @@ Subroutines:
 - 8300  Analyze polled active drives status until all drive workers have finished.
 - 8600  Print one compact work-size field in the mode summary line.
 
+For VIC-20 + 3K configuration, we use the following memory layout:
+
+| Address range | Description |
+|---:|---|
+| ``$0401-$????`` | Tokenized VIC-20 BASIC host/scheduler |
+| ``$????-$15FF`` | BASIC dynamic area: scalar variables, arrays, strings, temporary string data |
+| ``$1600-$17FF`` | VIC-20 local worker: code, parameters, result fields, and Q table |
+| ``$1800-...``   | Embedded compact 1541 drive image, uploaded to each drive via M-W |
+| ``$1D00-$1DFF`` | Spare / diagnostics / safety margin |
+| ``$1E00-$1FFF`` |  Screen RAM |
+
+Where the ??? is calculated by the build script, to put variables just above the tokenized BASIC codes. BASIC template contains placeholder for this:
+
+```basic
+100 poke45,000:poke46,000:poke55,0:poke56,22:clr
+```
+
+> Note: 22 is ``$16`` hex, so ``poke55,0:poke56,22`` sets variables limit to ``$1600``.
+
+> Note 2: Both local and 1541 workers are added to the tokenized BASIC .prg-file as a blobs, not as DATA-blocks, located in the file so to be placed at expected locations in the RAM while loading. So one cannot just run tokenized BASIC sources.
+
+Additionally, fre(0) call is extensively used -- it has a side effect of garbage collection, maximizing available memory. And I was forced  to remove many intermediate variables to squeeze code into available space. 
 
 #### VIC-20 unexpanded -- BASIC host
 
@@ -867,8 +922,125 @@ Subroutines:
 - 8300  Poll active drives until all drive workers have finished.
 - 8600  Print one compact work-size field in the mode summary line.
 
+Corresponding memory map is:
+
+| Address range | Description |
+|---:|---|
+| ``$1001-$????`` | Tokenized BASIC host/scheduler |
+| ``$????-$DDDD`` | BASIC variables, arrays, and string space |
+| ``$DDDD-$1DFF`` | Embedded compact 1541 drive image, uploaded to drives via `M-W` |
+| ``$1E00-$1FFF`` | Screen RAM |
+
+where ``$DDDD`` is computed by the following formula: 
+
+``drive_image_address = $1E00 - compact_drive_image_length``
+
+Corresponding BASIC placeholder (25 dec is a ``$19`` hex and 236 dec is ``$EC``: ``$19EC``):
+
+```basic
+100 poke45,000:poke46,000:poke55,236:poke56,25:clr
+```
 
 #### VIC-20 unexpanded -- assembly host
+
+Assembly and C sources can contain comments -- I compile them on a modern computer, so they include the necessary comments. I include here only a general description and interesting details.
+
+For the assembly host for the unexpanded VIC-20, memory map is the following:
+
+| Address range | Description |
+|---:|---|
+| ``$0000-$03FF`` | VIC-20 internal low RAM: zero page, stack, KERNAL/BASIC workspace. The assembly code uses zero-page pointer ``$FB/$FC``. |
+| ``$1001-$100C`` | Tiny BASIC loader stub: ``10 SYS 4112`` -- ``$1010``. |
+| ``$100D-$100F`` | Padding. |
+| ``$1010-...`` | Main 6502 assembly host/scheduler code. |
+| ``...`` | KERNAL IEC routines, mode scheduler, local VIC Monte Carlo worker, timing/arithmetic/printing code. |
+| `...` | Read-only data: strings, generated mode tables, and embedded compact 1541 drive image. |
+| `...-$1DFF` | BSS/runtime variables used by the assembly host. Must still fit below screen memory. |
+| `$1E00-$1FFF` | Default VIC-20 screen RAM. |
+
+Current details can be seen in the ``vic20_asm_u.map`` file.
+
+> Note: ``$00FB-$00FE`` interval contains available locations in zero page.
+
+> Note 2: After one assembly worker optimization, VIC-20 workers became almost half an order of magnitude faster than the 1541 workers -- so I was forced to optimize them and their cooperative switching, and then to re-record all videos...  
+
+> Note 4: At some point, I have the first fully working assembly edition. The title is a little bit noninformative. So I decided to add " ASM" text to it. And receive message -- program became 4 bytes too long. The previous code fit just byte-for-byte, with no free bytes. It is not interesting -- difficult to experiment with, so I spent some time optimizing and saved almost 200 bytes.
+
+Regarding the +3k assembly host -- it differs only in base address, BASIC stub, and title string:
+```nasm
+.ifdef VIC20_ASM_3K
+LOAD_ADDR = $0401
+NEXT_PTR  = $040B
+.else
+LOAD_ADDR = $1001
+NEXT_PTR  = $100B
+.endif
+.................
+.ifdef VIC20_ASM_3K
+        ; Minimal tokenized BASIC line:
+        ;   10 SYS 1040
+        ;
+        ; 1040 decimal is $0410, where the real assembly program starts.
+        .word NEXT_PTR
+        .word 10
+        .byte $9E,"1040",0
+        .word 0
+.else
+        ; Minimal tokenized BASIC line:
+        ;   10 SYS 4112
+        ;
+        ; 4112 decimal is $1010, where the real assembly program starts.
+        .word NEXT_PTR
+        .word 10
+        .byte $9E,"4112",0
+        .word 0
+.endif
+.................
+.ifdef VIC20_ASM_3K
+title:    .byte "V20+1541 3 ASM PI UI-",13,0
+.else
+title:    .byte "V20+1541 U ASM PI UI-",13,0
+.endif
+``` 
+
+For convenience, I provide both binaries, but unexpanded binary can be run on the +3k VIC-20 by the following commands:
+
+```basic
+LOAD"VIC20_ASM_U",8,1
+SYS 4112
+```
+
+``LOAD"VIC20_ASM_U",8,1`` loads to the address, set in the two first bytes in the .PRG file -- ``$1001–$1DFF``, but stub is wrong, so ``SYS 4112`` manually jumps here. ``RUN`` would be misleading, trying to execute code at ``$0401``.
+
+
+#### VIC-20 unexpanded -- C host and VIC-20 worker
+
+The C code is too large to fit into the available unextended RAM also the drive code. Reading from the disk and writing to the disk drive's memory is not an option either -- for one drive, they would compete for the same RAM. After many attempts, I used the then-popular trick: stored the drive worker into the video RAM, then copied it to drives. But video RAM is too small anyway -- 0.5 KB, while uncompressed (non-segmented worker) is approximately 1280 bytes long. So we developed the segmented loader, which loads only the required blocks, skipping padding zeroes. 
+
+Example of the autogenerated segments map:
+
+```text
+#define DRIVE_SEG0_ADDR     0x0300u
+#define DRIVE_SEG0_LEN      146u
+#define DRIVE_SEG0_PTR      ((const unsigned char*)0x1E20u)
+#define DRIVE_SEG1_ADDR     0x0400u
+#define DRIVE_SEG1_LEN      256u
+#define DRIVE_SEG1_PTR      q_table
+#define DRIVE_SEG2_ADDR     0x0500u
+#define DRIVE_SEG2_LEN      116u
+#define DRIVE_SEG2_PTR      ((const unsigned char*)0x1EB2u)
+#define DRIVE_SEG3_ADDR     0x0600u
+#define DRIVE_SEG3_LEN      80u
+#define DRIVE_SEG3_PTR      ((const unsigned char*)0x1F26u)
+#define DRIVE_SEG4_ADDR     0x0700u
+#define DRIVE_SEG4_LEN      80u
+#define DRIVE_SEG4_PTR      ((const unsigned char*)0x1F76u)
+```
+
+> Note: reading from the tape would be an option, but it was less interesting from both usability and difficulty perspectives. 
+> BTW, BSS is placed in the cassette buffer by the linker config. Tape operations are not required during the program's execution. 
+
+> Note 2: I squashed most commits for clarity, but left several size optimization commits to illustrate the effect of the different language constructions. E. g., using device number for the IEC communication as a function argument, instead of the global variable, costs 121 bytes. 
 
 
 
@@ -878,7 +1050,7 @@ Thanks to the intellectual disk drives, the C64 became a small heterogeneous com
 
 The numerical problem is embarrassingly parallel -- each Monte Carlo sample is independent. No worker needs data from another worker during the computation. So, from the algorithmic point of view, it is the simplest possible problem to parallelize – most problems were technical. 
 
-As a result, obtained scalability, with efficiency about 0.6-0.7, is "not great, not terrible" -- much worst than it should be in real parallel calculations, better than I expected from such an exotic setup.
+As a result, obtained scalability, with efficiency about 0.6-0.7, is "not great, not terrible" -- much worse than it should be in real parallel calculations, better than I expected from such an exotic setup.
 
 Let’s align our terminology with the terminology commonly used in HPC:
 
@@ -916,6 +1088,13 @@ Future work could include optimizations and generalization:
 - Optimizing blob for uploading 
 - Developing parallel programming framework for the C64 
 - Adding ability to communicate [between the drives](https://forum.vcfed.org/index.php?threads/accessing-two-1541-drives.52744/).
+- Port to LLVM-MOS and compare with the CC65 efficiency. 
+- Port to Oscar64 and compare with the CC65 efficiency. 
+
+Fellow hobbyists gave some more ideas: 
+
+- Create a self-hosted computer on the 1541, with cooperative multitasking (already implemented), swapping to disk, and terminal emulated over the IEC bus.
+- Port CBM BASIC subset to 1541, extensively using swapping. 
 
 
 ## Sources
