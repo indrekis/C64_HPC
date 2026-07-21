@@ -179,7 +179,14 @@ Scalability is similar to that of the C64 within error margins. Wallclock result
 
 Run on real hardware:
 
+https://github.com/user-attachments/assets/dab93c16-c621-43c7-8b8d-1fcfa215ce5b
+
+
 Run on VICE:
+
+https://github.com/user-attachments/assets/a1c326a6-3774-420c-bbe8-76cd3d7992e7
+
+
 
 
 ### Unexpanded VIC-20 BASIC host results
@@ -205,8 +212,12 @@ As one can see, scaling is almost linear here when only the 1541s are calculatin
 
 Run on real hardware:
 
+https://github.com/user-attachments/assets/167d7be9-eea2-4166-9738-fcae461cafac
+
 
 Run on VICE:
+
+https://github.com/user-attachments/assets/00fba678-0b01-4611-a93e-36d97dd54d4e
 
 
 
@@ -235,7 +246,12 @@ Run on VICE:
 
 Run on real hardware:
 
+https://github.com/user-attachments/assets/5d23c377-22d4-4609-b90f-cce1a16c1d42
+
 Run on VICE:
+
+https://github.com/user-attachments/assets/60e68dcf-70ad-4e07-9a15-7aebbc14b6e9
+
 
 ### Unexpanded VIC-20  -- C host and VIC-20 worker
 
@@ -265,9 +281,11 @@ As one can see, C is rather slow, so calculations are rather unbalanced and woul
 
 Run on real hardware:
 
+https://github.com/user-attachments/assets/eb26255e-371a-48c8-8a17-6ba52279bf9e
+
 Run on VICE:
 
-
+https://github.com/user-attachments/assets/1fed036b-aa93-45a8-85fd-5474371f9745
 
 
 
