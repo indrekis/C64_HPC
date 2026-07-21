@@ -79,6 +79,7 @@ _print_str:
 
 DRIVE_OVERLAY_LOAD = $1E20
 
+OVERLAY_DEVICE = 10
 ; Load vic20ucdrv as a PRG into screen RAM.  The lowercase filename is required:
 ; c1541 writes the D64 entry as "vic20ucdrv".
 _k_read_vic20_c_drv:
@@ -88,7 +89,7 @@ _k_read_vic20_c_drv:
         jsr SETNAM
 
         lda #1
-        ldx #8
+        ldx #OVERLAY_DEVICE
         ldy #1
         jsr SETLFS
 
