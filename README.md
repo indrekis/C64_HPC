@@ -352,7 +352,7 @@ For the default 1541, the disk number is hardcoded to 8; changing it could be pe
 
 I have a standard (European edition) 1541-II (number 8), a user-modded 1541 (USA edition) with a switch to select 9 or 8, and Pi1541 is configured by the file on the SD card. 
 
-| ![](media/MK_scr2.png) | 
+| ![](media/05_MK_scr2.png) | 
 | :----: |
 | My setup with an early test on screen. Pi1541 is on C64, above the keyboard. TRS-80 under the TV is unrelated to this project, it just lives there :=)  |
 
