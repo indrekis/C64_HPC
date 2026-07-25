@@ -147,7 +147,7 @@ For each unexpanded VIC-20 case, a +3k-compatible .prg file is created, just for
 
 Tests were less rigorous than for the C64; reproducibility was tested only basically, though across 3-5 runs, variations were minimal. Random errors in the tables below are less than 1s.
 
-| ![](media/VIC20/VIC20_3K_screen.jpg) |
+| ![](media/VIC20/01_VIC20_3K_screen.jpg) |
 | ------------------------------------ |
 | The VIC-20 screen is much smaller than that of the C64, so, despite my attempts, it is much more cryptic. (Though it is more convenient once I get used to it.) So here are some explanations. The first line describes the run, including [UI mode](#ui-and-ui--for-the-1541-dos). The next two lines are the legend: K -- work is printed as kilo-iterations, 60 means 60'000 iterations; V -- VIC20 work part, 8 -- drive 8 work part, same for the 9 and 10, ``--`` means none. Next line for each run: Pi value obtained, time of calculations and efficiency, calculated by the T/Tn/N. The screen is from the  VIC-20 + 3K extender running on the VICE emulator. | 
 
