@@ -580,7 +580,7 @@ It was related to using 1541s as a memory cache and was not that interesting.
 
 The table of circle quadrant is precalculated by the C64, and the code is uploaded onto 1541s before the time measurements start -- let us imagine that we run the code many times. In fact, I was more interested in parallel calculations, and uploading the code is slow and inherently sequential (I can imagine how it can be fixed by the custom fastloader, but it would be at least as difficult as the current project or even more). Additionally, though precalculating the table or, at least, moving its calculation to the drives can be useful at last from the total time required, I was too lazy to perform this refactoring for such an already long project. It also copies a blob of binary code for itself for uniformity.
 
-| ![](media/IMG_20260706_234336_086.jpg) | 
+| ![](media/01_IMG_20260706_234336_086.jpg) | 
 | :---: |
 | Photo of the real calculations. The error occurred because I unintentionally turned off one of the FDDs during the final cleanup and reinitialization. |
 
