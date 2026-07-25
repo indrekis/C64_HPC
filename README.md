@@ -106,7 +106,7 @@ Results, reported by the C64 timer, are rather imprecise, though relevant. Only 
 
 Regarding the Pi, a value close to 3.147 is obtained most of the time. Though at least once I obtained the 2.8… Maybe, some memory corruption or whatever.
 
-Run on real hardware (better quality [here](https://github.com/indrekis/C64_HPC/blob/master/media/real_C64.mp4)): 
+Run on real hardware (better quality [here](https://github.com/indrekis/C64_HPC/blob/master/media/02_real_C64.mp4)): 
 
 https://github.com/user-attachments/assets/a8c6c950-32e8-4cf4-80d8-aea2f9fc1d78
 
